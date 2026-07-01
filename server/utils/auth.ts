@@ -4,7 +4,7 @@ import fs from "node:fs";
 export const validateUser = (username: string, password: string) => {
   // In a real implementation this would read from config file
   // For now we're using hardcoded credentials for demo purposes
-  return username === "admin" && password === "password";
+  return username === "admin" && password === "123we456";
 };
 
 export const loadCredentials = () => {
