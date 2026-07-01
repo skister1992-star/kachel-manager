@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/App";
 import KachelCard from "@/components/KachelCard";
 import KachelDialog from "@/components/KachelDialog";
+import SettingsDialog from "@/components/SettingsDialog";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
-import { Plus, LogOut } from "lucide-react";
+import { Plus, LogOut, Settings as SettingsIcon } from "lucide-react";
 import { toast } from "sonner";
 
 interface Kachel {
@@ -20,6 +21,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Kachel | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const fetchKachels = async () => {
     try {
@@ -115,10 +117,13 @@ const Dashboard = () => {
       {/* Header */}
       <header className="border-b sticky top-0 z-10 bg-background/95 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
-          <h1 className="text-lg font-bold">Link Sammlung</h1>
+          <h1 className="text-lg font-bold">Kachel Manager</h1>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">{username}</span>
             <ThemeToggle />
+            <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)} title="Einstellungen">
+              <SettingsIcon size={18} />
+            </Button>
             <Button variant="ghost" size="icon" onClick={logout} title="Logout">
               <LogOut size={18} />
             </Button>
@@ -129,7 +134,7 @@ const Dashboard = () => {
       {/* Main */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold">Links</h2>
+          <h2 className="text-xl font-semibold">Your Kachels</h2>
           <Button onClick={openCreate}>
             <Plus size={16} className="mr-1" /> Add Kachel
           </Button>
@@ -162,6 +167,9 @@ const Dashboard = () => {
         onSubmit={(data) => editingItem ? handleUpdate(data) : handleCreate(data)}
         initialData={editingItem || undefined}
       />
+
+      {/* Settings Dialog */}
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   );
 };
