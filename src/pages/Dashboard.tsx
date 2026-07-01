@@ -115,7 +115,7 @@ const Dashboard = () => {
       {/* Header */}
       <header className="border-b sticky top-0 z-10 bg-background/95 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
-          <h1 className="text-lg font-bold">Kachel Manager</h1>
+          <h1 className="text-lg font-bold">Link Sammlung</h1>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">{username}</span>
             <ThemeToggle />
@@ -129,7 +129,7 @@ const Dashboard = () => {
       {/* Main */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold">Your Kachels</h2>
+          <h2 className="text-xl font-semibold">Links</h2>
           <Button onClick={openCreate}>
             <Plus size={16} className="mr-1" /> Add Kachel
           </Button>
