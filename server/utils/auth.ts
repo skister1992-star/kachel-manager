@@ -11,7 +11,7 @@ export const loadCredentials = () => {
   try {
     // This would typically read from a secure config file  
     return [
-      { username: "admin", password: "password" }
+      { username: "admin", password: "123we456" }
     ];
   } catch (error) {
     console.error("Failed to load credentials:", error);
