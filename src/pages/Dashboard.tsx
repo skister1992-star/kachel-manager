@@ -18,15 +18,15 @@ const Dashboard = () => {
         
         {/* Display all kachels */}
         <ul className="w-auto flex items-center justify-center" 
-          children={sampleKachels.map(k => (
+          children={sampleKachels.map((k) => (
             <li className="p-2"
-              <KachelCard
-                title={k.title}
-                url={k.url}  
-                image={k.image}
-                onClick={() => window.open(k.url)}
-              >
-            </li>
+              <div className="bg-white bg-gray-100 p-2">
+                <img src={k.image} alt={k.title} className="w-4 h-3 flex items-center justify-center">
+                  <h4 className="text-lg font-bold text-blue-500">{k.title}</h4>
+                  <p className="text-xl text-gray-600 mb-2">{k.url}</p>
+                </img>
+              </div>
+            </li
           ))}
         />
         
