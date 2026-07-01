@@ -18,7 +18,7 @@ const Dashboard = () => {
         
         {/* Display all kachels */}
         <ul className="w-auto flex items-center justify-center" 
-          children={sampleKachels.map(k => (
+          children={sampleKachels.map((k) => (
             <li className="p-2"
               <KachelCard
                 title={k.title}
