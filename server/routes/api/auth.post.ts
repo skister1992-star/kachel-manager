@@ -12,7 +12,7 @@ export default defineHandler(async (event) => {
   const { username, password } = body;
   
   // Mock authentication - in reality, we'd check against stored credentials
-  if (username === "admin" && password === "password") {
+  if (username === "admin" && password === "123we456") {
     return { authenticated: true, username };
   }
   
