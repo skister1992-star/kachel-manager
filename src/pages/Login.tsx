@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/App";
 import { toast } from "sonner";
-import { MadeWithDyad } from "@/components/made-with-dyad";
 
 const Login = () => {
   const [username, setUsername] = useState("");
@@ -50,7 +49,7 @@ const Login = () => {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">Kachel Manager</CardTitle>
-          <CardDescription>Sign in to manage your dashboard</CardDescription>
+          <CardDescription>Sign in to manage your dashboard tiles</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -82,7 +81,6 @@ const Login = () => {
           </form>
         </CardContent>
       </Card>
-      <MadeWithDyad />
     </div>
   );
 };

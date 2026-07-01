@@ -6,7 +6,6 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Plus, LogOut } from "lucide-react";
 import { toast } from "sonner";
-import { MadeWithDyad } from "@/components/made-with-dyad";
 
 interface Kachel {
   id: string;
@@ -28,7 +27,7 @@ const Dashboard = () => {
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setKachels(data || []);
-    } catch (err) {
+    } catch {
       toast.error("Could not load kachels from server.");
     } finally {
       setLoading(false);
@@ -160,8 +159,6 @@ const Dashboard = () => {
         onSubmit={(data) => editingItem ? handleUpdate(data) : handleCreate(data)}
         initialData={editingItem || undefined}
       />
-
-      <MadeWithDyad />
     </div>
   );
 };
