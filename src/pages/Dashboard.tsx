@@ -99,7 +99,10 @@ const Dashboard = () => {
 
   const openEdit = (id: string) => {
     const item = kachels.find((k) => k.id === id);
-    if (item) setEditingItem(item);
+    if (item) {
+      setEditingItem(item);
+      setDialogOpen(true);
+    }
   };
 
   const openCreate = () => {
