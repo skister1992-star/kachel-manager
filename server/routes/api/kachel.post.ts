@@ -1,6 +1,6 @@
 import { defineHandler } from "nitro";
 import { readBody, createError } from "nitro/h3";
-import { addKachel } from "../utils/kachel-data";
+import { addKachel } from "../../utils/kachel-data";
 
 export default defineHandler(async (event) => {
   const body = await readBody<{ title?: string; url?: string; image?: string }>(event);
