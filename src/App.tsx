@@ -1,24 +1,89 @@
-import React from "react";
-import { TooltipProvider } from "@/components/ui/tooltip"; 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import LoginPage from "./pages/Login";
+"use client";
+
+import { createContext, useContext, useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+type AuthContextType = {
+  isAuthenticated: boolean;
+  username: string | null;
+  login: (user: string) => void;
+  logout: () => void;
+};
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      {/* Router imports are handled by the framework */}
-      <div className="w-auto h-auto">
-        {/* Placeholder for routing logic - in actual app this would be handled by react-router-dom */}
-        <div className="p-4">
-          <h1 className="text-2xl font-bold mb-4">Kachel Manager</h1>
-          <p className="text-xl text-gray-600 mb-4">Login required to access dashboard</p>
-        </div>
-      </div>
-    </TooltipProvider>
-  <QueryClientProvider client={queryClient}>
-);
+const AuthContext = createContext<AuthContextType>({
+  isAuthenticated: false,
+  username: null,
+  login: () => {},
+  logout: () => {},
+});
+
+export const useAuth = () => useContext(AuthContext);
+
+function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [username, setUsername] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Check session on mount
+    const stored = sessionStorage.getItem("kachel-auth");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        setIsAuthenticated(parsed.isAuthenticated || false);
+        setUsername(parsed.username || null);
+      } catch {
+        sessionStorage.removeItem("kachel-auth");
+      }
+    }
+
+    // Initialize theme
+    const theme = localStorage.getItem("theme") || "light";
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
+
+  const login = (user: string) => {
+    setIsAuthenticated(true);
+    setUsername(user);
+    sessionStorage.setItem(
+      "kachel-auth",
+      JSON.stringify({ isAuthenticated: true, username: user })
+    );
+  };
+
+  const logout = () => {
+    setIsAuthenticated(false);
+    setUsername(null);
+    sessionStorage.removeItem("kachel-auth");
+  };
+
+  return (
+    <AuthContext.Provider value={{ isAuthenticated, username, login, logout }}>
+      <BrowserRouter>
+        <Routes>
+          <Route
+            path="/login"
+            element={
+              !isAuthenticated ? <Login /> : <Navigate to="/" replace />
+            }
+          />
+          <Route
+            path="/"
+            element={
+              isAuthenticated ? <Dashboard /> : <Navigate to="/login" replace />
+            }
+          />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthContext.Provider>
+  );
+}
 
 export default App;
