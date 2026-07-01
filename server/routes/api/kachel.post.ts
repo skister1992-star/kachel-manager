@@ -1,5 +1,6 @@
 import { defineHandler } from "nitro";
 import { readBody, createError } from "nitro/h3";
+import { addKachel } from "../utils/kachel-data";
 
 export default defineHandler(async (event) => {
   const body = await readBody<{ title?: string; url?: string; image?: string }>(event);
@@ -8,15 +9,16 @@ export default defineHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "Title and URL are required" });
   }
 
-  // In a real app, this would validate against config file
   const newItem = {
     id: `k-${Date.now()}`,
     title: body.title.trim(),
     url: body.url.trim(),
-    image: body.image?.trim() || ""
+    image: body.image?.trim() || "",
   };
 
-  console.log("Created new Kachel:", newItem);
-  
+  if (!addKachel(newItem)) {
+    throw createError({ statusCode: 500, statusMessage: "Failed to save Kachel" });
+  }
+
   return { success: true, data: newItem };
 });

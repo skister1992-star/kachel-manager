@@ -1,5 +1,6 @@
 import { defineHandler } from "nitro";
 import { readBody, createError } from "nitro/h3";
+import { deleteKachel } from "../utils/kachel-data";
 
 export default defineHandler(async (event) => {
   const body = await readBody<{ id?: string }>(event);
@@ -8,8 +9,9 @@ export default defineHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "ID is required to delete" });
   }
 
-  // In a real app, this would delete from persistent storage
-  console.log("Deleted Kachel:", body.id);
-  
+  if (!deleteKachel(body.id)) {
+    throw createError({ statusCode: 500, statusMessage: "Failed to delete Kachel" });
+  }
+
   return { success: true };
 });

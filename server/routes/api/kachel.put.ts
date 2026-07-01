@@ -1,5 +1,6 @@
 import { defineHandler } from "nitro";
 import { readBody, createError } from "nitro/h3";
+import { updateKachel } from "../utils/kachel-data";
 
 export default defineHandler(async (event) => {
   const body = await readBody<{ id?: string; title?: string; url?: string; image?: string }>(event);
@@ -8,15 +9,16 @@ export default defineHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "ID is required to update" });
   }
 
-  // In a real app, this would update persistent storage
   const updatedItem = {
     id: body.id,
     title: body.title?.trim(),
     url: body.url?.trim(),
-    image: body.image?.trim() || ""
+    image: body.image?.trim() || "",
   };
 
-  console.log("Updated Kachel:", updatedItem);
-  
+  if (!updateKachel(body.id, updatedItem)) {
+    throw createError({ statusCode: 404, statusMessage: "Kachel not found" });
+  }
+
   return { success: true, data: updatedItem };
 });
