@@ -24,21 +24,35 @@ const KachelDialog = ({ open, onOpenChange, onSubmit, initialData }: KachelDialo
   const [image, setImage] = useState(initialData?.image || "");
 
   useEffect(() => {
-    if (initialData) {
+    if (initialData && open) {
       setTitle(initialData.title);
       setUrl(initialData.url);
       setImage(initialData.image || "");
-    } else {
-      setTitle("");
-      setUrl("");
-      setImage("");
+    } else if (!open) {
+      // Reset form when dialog closes
+      setTimeout(() => {
+        setTitle("");
+        setUrl("");
+        setImage("");
+      }, 0);
     }
   }, [initialData, open]);
 
   const handleSubmit = () => {
     if (!title.trim() || !url.trim()) return;
-    onSubmit({ id: initialData?.id, title: title.trim(), url: url.trim(), image: image.trim() });
+    
+    // Close dialog immediately after submitting data
     onOpenChange(false);
+    
+    // Call onSubmit with the new data
+    setTimeout(() => {
+      onSubmit({ 
+        id: initialData?.id, 
+        title: title.trim(), 
+        url: url.trim(), 
+        image: image.trim() 
+      });
+    }, 0);
   };
 
   return (
@@ -51,15 +65,35 @@ const KachelDialog = ({ open, onOpenChange, onSubmit, initialData }: KachelDialo
         <div className="space-y-4 py-2">
           <div className="space-y-2">
             <Label htmlFor="k-title">Title</Label>
-            <Input id="k-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="My Website" />
+            <Input 
+              id="k-title" 
+              value={title} 
+              onChange={(e) => setTitle(e.target.value)} 
+              placeholder="My Website" 
+              disabled={!open} // Disable when dialog is closing
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="k-url">URL</Label>
-            <Input id="k-url" type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" />
+            <Input 
+              id="k-url" 
+              type="url" 
+              value={url} 
+              onChange={(e) => setUrl(e.target.value)} 
+              placeholder="https://example.com" 
+              disabled={!open} // Disable when dialog is closing
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="k-image">Image URL (optional)</Label>
-            <Input id="k-image" type="url" value={image} onChange={(e) => setImage(e.target.value)} placeholder="https://example.com/image.png" />
+            <Input 
+              id="k-image" 
+              type="url" 
+              value={image} 
+              onChange={(e) => setImage(e.target.value)} 
+              placeholder="https://example.com/image.png" 
+              disabled={!open} // Disable when dialog is closing
+            />
           </div>
         </div>
         <DialogFooter>
