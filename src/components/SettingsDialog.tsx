@@ -10,10 +10,12 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface ServerSettings {
   port: number;
-  networkMode: boolean; // true = network (0.0.0.0), false = local (127.0.0.1)
+  networkMode: boolean;
 }
 
 const defaultSettings: ServerSettings = {
@@ -36,12 +38,28 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
     }
   });
 
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
   useEffect(() => {
     if (open) {
+      // Load server settings
       try {
         const saved = localStorage.getItem("server-settings");
         if (saved) setSettings(JSON.parse(saved));
       } catch {}
+
+      // Fetch current credentials from server
+      fetch("/api/auth")
+        .then((res) => res.json())
+        .then((data) => {
+          setUsername(data.username || "");
+          setPassword(data.password || "");
+        })
+        .catch(() => {
+          setUsername("admin");
+          setPassword("123we456");
+        });
     }
   }, [open]);
 
@@ -49,7 +67,25 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSave = () => {
+  const handleSaveCredentials = async () => {
+    if (!username.trim() || !password.trim()) {
+      toast.error("Bitte Benutzername und Passwort eingeben.");
+      return;
+    }
+    try {
+      const res = await fetch("/api/auth", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim(), password: password.trim() }),
+      });
+      if (!res.ok) throw new Error("Failed to save credentials");
+      toast.success("Anmeldeinformationen gespeichert!");
+    } catch {
+      toast.error("Fehler beim Speichern der Anmeldeinformationen.");
+    }
+  };
+
+  const handleSaveSettings = () => {
     localStorage.setItem("server-settings", JSON.stringify(settings));
     onOpenChange(false);
   };
@@ -64,7 +100,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Einstellungen</DialogTitle>
-          <DialogDescription>Konfiguriere den Server-Port und die Netzwerk-Erreichbarkeit.</DialogDescription>
+          <DialogDescription>Konfiguriere den Server-Port, die Netzwerk-Erreichbarkeit und deine Anmeldeinformationen.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-2">
@@ -101,6 +137,32 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
           <Separator />
 
+          {/* Credentials */}
+          <div className="space-y-3">
+            <Label className="text-base font-medium">Anmeldeinformationen</Label>
+            <div className="space-y-2">
+              <Label htmlFor="settings-username" className="text-sm">Benutzername</Label>
+              <Input
+                id="settings-username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Benutzername"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="settings-password" className="text-sm">Passwort</Label>
+              <Input
+                id="settings-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Passwort"
+              />
+            </div>
+          </div>
+
+          <Separator />
+
           {/* Summary */}
           <div className="bg-muted/50 rounded-lg p-4 space-y-1 text-sm">
             <p><span className="font-medium">Zugriff:</span> {settings.networkMode ? "Im Netzwerk" : "Nur Lokal"}</p>
@@ -109,19 +171,19 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center justify-between pt-2 gap-3 flex-wrap">
             <button
               onClick={handleReset}
               className="text-sm text-muted-foreground hover:text-foreground underline"
             >
               Zurücksetzen
             </button>
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
-            >
-              Speichern
-            </button>
+            <Button variant="outline" size="sm" onClick={handleSaveCredentials}>
+              Anmeldeinformationen speichern
+            </Button>
+            <Button size="sm" onClick={handleSaveSettings}>
+              Speichern & Schließen
+            </Button>
           </div>
         </div>
       </DialogContent>

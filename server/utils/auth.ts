@@ -1,27 +1,33 @@
-import { defineHandler } from "nitro";
 import fs from "node:fs";
 
+const CREDENTIALS_FILE = "./data/credentials.json";
+
+function loadCredentials() {
+  try {
+    if (fs.existsSync(CREDENTIALS_FILE)) {
+      return JSON.parse(fs.readFileSync(CREDENTIALS_FILE, "utf-8"));
+    }
+  } catch {}
+  // Default fallback credentials
+  return { username: "admin", password: "123we456" };
+}
+
 export const validateUser = (username: string, password: string) => {
-  // In a real implementation this would read from config file
-  // For now we're using hardcoded credentials for demo purposes
-  return username === "admin" && password === "123we456";
+  const stored = loadCredentials();
+  return username === stored.username && password === stored.password;
 };
 
-export const loadCredentials = () => {
-  try {
-    // This would typically read from a secure config file  
-    return [
-      { username: "admin", password: "123we456" }
-    ];
-  } catch (error) {
-    console.error("Failed to load credentials:", error);
-    return [];
-  }
+export const getCredentials = () => {
+  return loadCredentials();
 };
 
-export const saveCredentials = (users: Array<{username: string, password: string}>) => {
+export const saveCredentials = (username: string, password: string) => {
   try {
-    // This would typically write to a secure config file
+    const dataDir = "./data";
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    fs.writeFileSync(CREDENTIALS_FILE, JSON.stringify({ username, password }, null, 2), "utf-8");
     return true;
   } catch (error) {
     console.error("Failed to save credentials:", error);
