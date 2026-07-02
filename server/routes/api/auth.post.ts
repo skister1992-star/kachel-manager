@@ -1,5 +1,5 @@
 import { defineHandler } from "nitro";
-import { readBody, createError } from "nitro/h3";
+import { readBody, setResponseStatus } from "nitro/h3";
 import fs from "node:fs";
 
 const CREDENTIALS_FILE = "./data/credentials.json";
@@ -10,7 +10,6 @@ function loadCredentials() {
       return JSON.parse(fs.readFileSync(CREDENTIALS_FILE, "utf-8"));
     }
   } catch {}
-  // Default fallback credentials
   return { username: "admin", password: "123we456" };
 }
 
@@ -18,7 +17,8 @@ export default defineHandler(async (event) => {
   const body = await readBody<{ username?: string; password?: string }>(event);
 
   if (!body?.username || !body?.password) {
-    throw createError({ statusCode: 400, statusMessage: "Username and password required" });
+    setResponseStatus(event, 400, "Username and password required");
+    return { error: "Username and password required" };
   }
 
   const stored = loadCredentials();
@@ -27,5 +27,6 @@ export default defineHandler(async (event) => {
     return { authenticated: true, username: body.username };
   }
 
-  throw createError({ statusCode: 401, statusMessage: "Invalid credentials" });
+  setResponseStatus(event, 401, "Invalid credentials");
+  return { error: "Wrong username or password" };
 });
