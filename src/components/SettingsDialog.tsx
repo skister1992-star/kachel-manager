@@ -13,14 +13,16 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-interface ServerSettings {
+interface ServerConfig {
+  hostMode: "local" | "network";
+  host: string;
   port: number;
-  networkMode: boolean;
 }
 
-const defaultSettings: ServerSettings = {
-  port: 8080,
-  networkMode: false,
+const defaultServerConfig: ServerConfig = {
+  hostMode: "local",
+  host: "127.0.0.1",
+  port: 3000,
 };
 
 interface SettingsDialogProps {
@@ -29,42 +31,68 @@ interface SettingsDialogProps {
 }
 
 const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
-  const [settings, setSettings] = useState<ServerSettings>(() => {
-    try {
-      const saved = localStorage.getItem("server-settings");
-      return saved ? JSON.parse(saved) : defaultSettings;
-    } catch {
-      return defaultSettings;
-    }
-  });
+  const [serverConfig, setServerConfig] = useState<ServerConfig>(defaultServerConfig);
+  const [lanIp, setLanIp] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
+  // Auth state
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
   useEffect(() => {
     if (open) {
-      // Load server settings
-      try {
-        const saved = localStorage.getItem("server-settings");
-        if (saved) setSettings(JSON.parse(saved));
-      } catch {}
-
-      // Fetch current credentials from server
-      fetch("/api/auth")
-        .then((res) => res.json())
-        .then((data) => {
-          setUsername(data.username || "");
-          setPassword(data.password || "");
-        })
-        .catch(() => {
-          setUsername("admin");
-          setPassword("123we456");
-        });
+      loadConfig();
     }
   }, [open]);
 
-  const handleChange = (key: keyof ServerSettings, value: number | boolean) => {
-    setSettings((prev) => ({ ...prev, [key]: value }));
+  const loadConfig = async () => {
+    try {
+      const res = await fetch("/api/server-config");
+      if (!res.ok) throw new Error("Failed to load config");
+      const data = await res.json();
+      setServerConfig({
+        hostMode: data.hostMode || "local",
+        host: data.host || "127.0.0.1",
+        port: data.port || 3000,
+      });
+      setLanIp(data.lanIp || null);
+    } catch {
+      // Fallback to defaults
+      setServerConfig(defaultServerConfig);
+    } finally {
+      setLoading(false);
+    }
+
+    // Load credentials from server
+    try {
+      const res = await fetch("/api/auth");
+      if (res.ok) {
+        const data = await res.json();
+        setUsername(data.username || "");
+        setPassword(data.password || "");
+      }
+    } catch {}
+  };
+
+  const handleSaveServerConfig = async () => {
+    try {
+      const res = await fetch("/api/server-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hostMode: serverConfig.hostMode,
+          port: serverConfig.port,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to save config");
+      
+      const data = await res.json();
+      setServerConfig(data.config);
+      toast.success("Konfiguration gespeichert! Neustart erforderlich.");
+    } catch {
+      toast.error("Fehler beim Speichern der Konfiguration.");
+    }
   };
 
   const handleSaveCredentials = async () => {
@@ -85,105 +113,133 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
     }
   };
 
-  const handleSaveSettings = () => {
-    localStorage.setItem("server-settings", JSON.stringify(settings));
-    onOpenChange(false);
+  const handleReset = () => {
+    setServerConfig(defaultServerConfig);
   };
 
-  const handleReset = () => {
-    setSettings(defaultSettings);
-    localStorage.removeItem("server-settings");
-  };
+  if (loading) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <div className="p-6 text-center">Lädt Einstellungen...</div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Einstellungen</DialogTitle>
-          <DialogDescription>Konfiguriere den Server-Port, die Netzwerk-Erreichbarkeit und deine Anmeldeinformationen.</DialogDescription>
+          <DialogDescription>Konfiguriere Servereinstellungen und Anmeldeinformationen.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-2">
-          {/* Port */}
-          <div className="space-y-3">
-            <Label htmlFor="port" className="text-base font-medium">Server-Port</Label>
-            <Input
-              id="port"
-              type="number"
-              min={1024}
-              max={65535}
-              value={settings.port}
-              onChange={(e) => handleChange("port", parseInt(e.target.value, 10) || 8080)}
-            />
-            <p className="text-xs text-muted-foreground">Empfohlen: 8080 (Standard)</p>
+          {/* Server Section */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Server</h3>
+            
+            <div className="space-y-4">
+              {/* Host Mode */}
+              <div className="flex items-center justify-between">
+                <Label htmlFor="host-mode" className="text-base font-medium">Host-Modus</Label>
+                <Switch
+                  id="host-mode"
+                  checked={serverConfig.hostMode === "network"}
+                  onCheckedChange={(checked: boolean) => {
+                    setServerConfig({
+                      ...serverConfig,
+                      hostMode: checked ? "network" : "local",
+                      host: checked ? "0.0.0.0" : "127.0.0.1",
+                    });
+                  }}
+                />
+              </div>
+
+              {/* Port */}
+              <div className="space-y-2">
+                <Label htmlFor="port" className="text-base font-medium">Port</Label>
+                <Input
+                  id="port"
+                  type="number"
+                  min={1}
+                  max={65535}
+                  value={serverConfig.port || ""}
+                  onChange={(e) => {
+                    const port = parseInt(e.target.value, 10);
+                    if (!isNaN(port)) {
+                      setServerConfig({ ...serverConfig, port });
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Connection Info */}
+              <div className="bg-muted/50 rounded-lg p-4 space-y-2 text-sm">
+                <h4 className="font-medium mb-2">Aktuelle Verbindung</h4>
+                <p><span className="text-muted-foreground">Hostmodus:</span> {serverConfig.hostMode === "local" ? "Lokal" : "Netzwerk"}</p>
+                <p><span className="text-muted-foreground">Host:</span> {serverConfig.host}</p>
+                <p><span className="text-muted-foreground">Port:</span> {serverConfig.port}</p>
+                <p><span className="text-muted-foreground">Lokale URL:</span> http://{serverConfig.host === "0.0.0.0" ? "127.0.0.1" : serverConfig.host}:{serverConfig.port}</p>
+                
+                {lanIp && (
+                  <div>
+                    <p className="mt-2"><span className="text-muted-foreground">LAN-Adresse:</span></p>
+                    <p className="ml-4">http://{lanIp}:{serverConfig.port}</p>
+                  </div>
+                )}
+
+                {/* Restart Notice */}
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mt-3 text-xs text-yellow-800">
+                  Hinweis: Die Änderungen werden nach einem Neustart der Anwendung aktiv.
+                </div>
+              </div>
+
+              {/* Server Actions */}
+              <div className="flex items-center gap-2 pt-2">
+                <Button size="sm" onClick={handleSaveServerConfig}>Speichern</Button>
+                <button
+                  onClick={handleReset}
+                  className="text-sm text-muted-foreground hover:text-foreground underline px-3 py-2"
+                >
+                  Zurücksetzen
+                </button>
+              </div>
+            </div>
           </div>
 
           <Separator />
 
-          {/* Network Mode */}
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <Label htmlFor="network" className="text-base font-medium">Netzwerk-Erreichbarkeit</Label>
-              <p className="text-xs text-muted-foreground leading-tight">
-                {settings.networkMode ? "Server ist im Netzwerk erreichbar (0.0.0.0)" : "Nur lokal erreichbar (127.0.0.1)"}
-              </p>
+          {/* Auth Section */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Anmeldeinformationen</h3>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="settings-username" className="text-sm">Benutzername</Label>
+                <Input
+                  id="settings-username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Benutzername"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="settings-password" className="text-sm">Passwort</Label>
+                <Input
+                  id="settings-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Passwort"
+                />
+              </div>
+
+              {/* Auth Actions */}
+              <Button size="sm" onClick={handleSaveCredentials}>Anmeldeinformationen speichern</Button>
             </div>
-            <Switch
-              id="network"
-              checked={settings.networkMode}
-              onCheckedChange={(v: boolean) => handleChange("networkMode", v)}
-            />
-          </div>
-
-          <Separator />
-
-          {/* Credentials */}
-          <div className="space-y-3">
-            <Label className="text-base font-medium">Anmeldeinformationen</Label>
-            <div className="space-y-2">
-              <Label htmlFor="settings-username" className="text-sm">Benutzername</Label>
-              <Input
-                id="settings-username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Benutzername"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="settings-password" className="text-sm">Passwort</Label>
-              <Input
-                id="settings-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Passwort"
-              />
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Summary */}
-          <div className="bg-muted/50 rounded-lg p-4 space-y-1 text-sm">
-            <p><span className="font-medium">Zugriff:</span> {settings.networkMode ? "Im Netzwerk" : "Nur Lokal"}</p>
-            <p><span className="font-medium">Host:</span> {settings.networkMode ? "0.0.0.0" : "127.0.0.1"}</p>
-            <p><span className="font-medium">Port:</span> {settings.port}</p>
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center justify-between pt-2 gap-3 flex-wrap">
-            <button
-              onClick={handleReset}
-              className="text-sm text-muted-foreground hover:text-foreground underline"
-            >
-              Zurücksetzen
-            </button>
-            <Button variant="outline" size="sm" onClick={handleSaveCredentials}>
-              Anmeldeinformationen speichern
-            </Button>
-            <Button size="sm" onClick={handleSaveSettings}>
-              Speichern & Schließen
-            </Button>
           </div>
         </div>
       </DialogContent>
