@@ -1,5 +1,5 @@
 import { defineHandler } from "nitro";
-import { loadKachelData } from "../../utils/kachel-data";
+import { loadKachelData } from "../../../utils/kachel-data";
 
 export default defineHandler(async () => {
   try {
