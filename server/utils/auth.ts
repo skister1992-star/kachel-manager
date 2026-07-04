@@ -9,7 +9,7 @@ function loadCredentials() {
     }
   } catch {}
   // Default fallback credentials
-  return { username: "admin", password: "123we456" };
+  return { username: "admin", password: "admin" };
 }
 
 export const validateUser = (username: string, password: string) => {
