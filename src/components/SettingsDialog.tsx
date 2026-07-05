@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { X } from "lucide-react";
 import { toast } from "sonner";
 
 interface ServerConfig {
@@ -46,6 +48,11 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
       loadConfig();
     }
   }, [open]);
+
+  const parseHosts = (hostsStr: string | undefined): string[] => {
+    if (!hostsStr || !hostsStr.trim()) return [];
+    return hostsStr.split(",").map((h) => h.trim()).filter(Boolean);
+  };
 
   const loadConfig = async () => {
     try {
@@ -168,6 +175,8 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
     );
   }
 
+  const currentHosts = parseHosts(serverConfig.allowedHosts);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
@@ -219,13 +228,29 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
               {/* Allowed Hosts */}
               <div className="space-y-2">
                 <Label htmlFor="allowed-hosts" className="text-base font-medium">Erlaubte Hosts</Label>
-                <Input
-                  id="allowed-hosts"
-                  type="text"
-                  value={serverConfig.allowedHosts || ""}
-                  onChange={(e) => setServerConfig({ ...serverConfig, allowedHosts: e.target.value })}
-                  placeholder="localhost, start.sebastian-kister.de (kommagetrennt)"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="allowed-hosts"
+                    type="text"
+                    value={serverConfig.allowedHosts || ""}
+                    onChange={(e) => setServerConfig({ ...serverConfig, allowedHosts: e.target.value })}
+                    placeholder="localhost, start.sebastian-kister.de (kommagetrennt)"
+                  />
+                  <Button variant="outline" size="icon" onClick={() => setServerConfig({...serverConfig, allowedHosts: ""})}>
+                    <X size={16} />
+                  </Button>
+                </div>
+
+                {/* Current Hosts Display */}
+                {currentHosts.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {currentHosts.map((host, idx) => (
+                      <Badge key={idx} variant="secondary" className="text-xs py-1 px-2">
+                        {host}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Connection Info */}

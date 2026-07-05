@@ -28,6 +28,7 @@ export default defineHandler(async () => {
       hostMode: savedConfig.hostMode || "local",
       host: savedConfig.networkMode ? "::" : "127.0.0.1",
       port: Number(savedConfig.port) || 3000,
+      allowedHosts: savedConfig.allowedHosts || "",
     } : null,
     lanIp: null,
   };
