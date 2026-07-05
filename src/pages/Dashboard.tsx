@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
-import { Plus, Minus, LogOut, Settings as SettingsIcon } from "lucide-react";
+import { Plus, Minus, LogOut, Settings as SettingsIcon, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/App";
 
@@ -30,6 +30,7 @@ const Dashboard = () => {
   const [formTitle, setFormTitle] = useState("");
   const [formUrl, setFormUrl] = useState("");
   const [formImage, setFormImage] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   // Delete menu state
   const [deleteMenuOpen, setDeleteMenuOpen] = useState(false);
@@ -67,6 +68,41 @@ const Dashboard = () => {
     setFormUrl(k.url);
     setFormImage(k.image || "");
     setDialogOpen(true);
+  };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Nur Bilddateien sind erlaubt.");
+      e.target.value = "";
+      return;
+    }
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const result = await res.json();
+      if (result.success) {
+        setFormImage(result.url);
+        toast.success("Bild hochgeladen!");
+      } else {
+        toast.error(result.error || "Upload fehlgeschlagen.");
+      }
+    } catch {
+      toast.error("Server-Verbindung fehlgeschlagen.");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
   };
 
   const handleSaveDialog = async () => {
@@ -221,9 +257,30 @@ const Dashboard = () => {
               <Input id="kachel-url" value={formUrl} onChange={(e) => setFormUrl(e.target.value)} placeholder="z.B. https://google.com" />
             </div>
 
+            {/* Image upload */}
             <div className="space-y-2">
-              <Label htmlFor="kachel-image">Bild-URL (optional)</Label>
-              <Input id="kachel-image" value={formImage} onChange={(e) => setFormImage(e.target.value)} placeholder="z.B. https://example.com/logo.png" />
+              <Label htmlFor="kachel-image">Bild</Label>
+              {formImage && (
+                <div className="rounded-lg overflow-hidden border mb-2 aspect-video relative">
+                  <img src={formImage} alt="Vorschau" className="w-full h-full object-cover" />
+                  <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={() => setFormImage("")}>×</Button>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Input id="kachel-image" value={formImage} onChange={(e) => setFormImage(e.target.value)} placeholder="Bild-URL oder Datei hochladen..." readOnly />
+                <label htmlFor="file-upload" className="shrink-0">
+                  <Button variant="outline" size="icon" disabled={uploading}>
+                    <Upload size={18} />
+                  </Button>
+                  <Input
+                    id="file-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleUpload}
+                  />
+                </label>
+              </div>
             </div>
 
             <Button className="w-full" onClick={handleSaveDialog}>

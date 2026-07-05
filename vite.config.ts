@@ -12,14 +12,14 @@ try {
   if (fs.existsSync(settingsPath)) {
     const parsed = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
     serverSettings.port = typeof parsed.port === "number" ? parsed.port : 32122;
-    
+
     // Use network mode host if enabled
     if (parsed.networkMode) {
       serverSettings.host = "::";
     } else {
       serverSettings.host = "127.0.0.1";
     }
-    
+
     if (parsed.allowedHosts && typeof parsed.allowedHosts === "string") {
       serverSettings.allowedHosts = parsed.allowedHosts.split(",").map((h: string) => h.trim()).filter(Boolean);
     } else if (Array.isArray(parsed.allowedHosts)) {
@@ -36,6 +36,9 @@ export default defineConfig(() => ({
     host: serverSettings.host,
     port: serverSettings.port,
     allowedHosts: serverSettings.allowedHosts,
+    fs: {
+      allow: ["."], // Allow serving files from project root including /data/uploads/
+    },
   },
   plugins: [dyadComponentTagger(), react(), nitro()],
   resolve: {
