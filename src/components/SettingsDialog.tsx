@@ -31,7 +31,12 @@ interface SettingsDialogProps {
 }
 
 const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
+  // Form state - what user is editing
   const [serverConfig, setServerConfig] = useState<ServerConfig>(defaultServerConfig);
+  
+  // Current running config - loaded from server
+  const [currentConfig, setCurrentConfig] = useState<ServerConfig | null>(null);
+  
   const [lanIp, setLanIp] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -50,15 +55,18 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
       const res = await fetch("/api/server-config");
       if (!res.ok) throw new Error("Failed to load config");
       const data = await res.json();
-      setServerConfig({
+      
+      // Load current running config from server
+      setCurrentConfig({
         hostMode: data.hostMode || "local",
         host: data.host || "127.0.0.1",
         port: data.port || 3000,
       });
+      
       setLanIp(data.lanIp || null);
     } catch {
       // Fallback to defaults
-      setServerConfig(defaultServerConfig);
+      setCurrentConfig(defaultServerConfig);
     } finally {
       setLoading(false);
     }
@@ -88,9 +96,10 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
       if (!res.ok) throw new Error("Failed to save config");
       
       const data = await res.json();
-      setServerConfig(data.config);
+      setCurrentConfig(data.config); // Update current running config after successful save
       toast.success("Konfiguration gespeichert! Neustart erforderlich.");
-    } catch {
+    } catch (error) {
+      console.error("Save error:", error);
       toast.error("Fehler beim Speichern der Konfiguration.");
     }
   };
@@ -178,15 +187,15 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
               {/* Connection Info */}
               <div className="bg-muted/50 rounded-lg p-4 space-y-2 text-sm">
                 <h4 className="font-medium mb-2">Aktuelle Verbindung</h4>
-                <p><span className="text-muted-foreground">Hostmodus:</span> {serverConfig.hostMode === "local" ? "Lokal" : "Netzwerk"}</p>
-                <p><span className="text-muted-foreground">Host:</span> {serverConfig.host}</p>
-                <p><span className="text-muted-foreground">Port:</span> {serverConfig.port}</p>
-                <p><span className="text-muted-foreground">Lokale URL:</span> http://{serverConfig.host === "0.0.0.0" ? "127.0.0.1" : serverConfig.host}:{serverConfig.port}</p>
+                <p><span className="text-muted-foreground">Hostmodus:</span> {currentConfig?.hostMode === "local" ? "Lokal" : "Netzwerk"}</p>
+                <p><span className="text-muted-foreground">Host:</span> {currentConfig?.host}</p>
+                <p><span className="text-muted-foreground">Port:</span> {currentConfig?.port}</p>
+                <p><span className="text-muted-foreground">Lokale URL:</span> http://{currentConfig?.host === "0.0.0.0" ? "127.0.0.1" : currentConfig?.host}:{currentConfig?.port}</p>
                 
                 {lanIp && (
                   <div>
                     <p className="mt-2"><span className="text-muted-foreground">LAN-Adresse:</span></p>
-                    <p className="ml-4">http://{lanIp}:{serverConfig.port}</p>
+                    <p className="ml-4">http://{lanIp}:{currentConfig?.port}</p>
                   </div>
                 )}
 
