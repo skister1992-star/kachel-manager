@@ -17,6 +17,7 @@ interface ServerConfig {
   hostMode: "local" | "network";
   host: string;
   port: number;
+  allowedHosts?: string;
 }
 
 const defaultServerConfig: ServerConfig = {
@@ -64,6 +65,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           hostMode: data.saved.hostMode || "local",
           host: data.saved.host || "127.0.0.1",
           port: Number(data.saved.port) || 3000,
+          allowedHosts: data.saved.allowedHosts || "",
         });
       }
 
@@ -72,6 +74,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
         hostMode: data.saved.hostMode || "local",
         host: data.saved.networkMode ? "0.0.0.0" : "127.0.0.1",
         port: Number(data.saved.port) || 3000,
+        allowedHosts: data.saved.allowedHosts || "",
       } as ServerConfig : defaultServerConfig;
       setServerConfig(formConfig);
     } catch (err) {
@@ -104,6 +107,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
         body: JSON.stringify({
           hostMode: serverConfig.hostMode,
           port: serverConfig.port,
+          allowedHosts: serverConfig.allowedHosts || "",
         }),
       });
 
@@ -209,6 +213,18 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                       setServerConfig({ ...serverConfig, port });
                     }
                   }}
+                />
+              </div>
+
+              {/* Allowed Hosts */}
+              <div className="space-y-2">
+                <Label htmlFor="allowed-hosts" className="text-base font-medium">Erlaubte Hosts</Label>
+                <Input
+                  id="allowed-hosts"
+                  type="text"
+                  value={serverConfig.allowedHosts || ""}
+                  onChange={(e) => setServerConfig({ ...serverConfig, allowedHosts: e.target.value })}
+                  placeholder="localhost, start.sebastian-kister.de (kommagetrennt)"
                 />
               </div>
 
