@@ -5,7 +5,7 @@ import fs from "node:fs";
 const SETTINGS_PATH = "./data/server-settings.json";
 
 export default defineHandler(async (event) => {
-  const body = await readBody<{ hostMode?: string; port?: number }>(event);
+  const body = await readBody<{ hostMode?: string; port?: number; allowedHosts?: string }>(event);
 
   if (!body?.port || !Number.isFinite(body.port)) {
     throw createError({ statusCode: 400, statusMessage: "Valid port is required" });
@@ -21,6 +21,7 @@ export default defineHandler(async (event) => {
       hostMode: body.hostMode || "local",
       port: Number(body.port),
       networkMode: body.hostMode === "network",
+      allowedHosts: body.allowedHosts || "",
     };
 
     fs.writeFileSync(SETTINGS_PATH, JSON.stringify(config, null, 2), "utf-8");
