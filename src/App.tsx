@@ -9,15 +9,19 @@ import NotFound from "./pages/NotFound";
 type AuthContextType = {
   isAuthenticated: boolean;
   username: string | null;
+  editMode: boolean;
   login: (user: string) => void;
   logout: () => void;
+  setEditMode: (mode: boolean) => void;
 };
 
 const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   username: null,
+  editMode: false,
   login: () => {},
   logout: () => {},
+  setEditMode: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -25,9 +29,9 @@ export const useAuth = () => useContext(AuthContext);
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
+  const [editMode, setEditModeState] = useState(false);
 
   useEffect(() => {
-    // Check session on mount
     const stored = sessionStorage.getItem("kachel-auth");
     if (stored) {
       try {
@@ -39,7 +43,10 @@ function App() {
       }
     }
 
-    // Initialize theme from localStorage
+    // Load edit mode from localStorage
+    const savedEditMode = localStorage.getItem("kachel-edit-mode");
+    if (savedEditMode === "true") setEditModeState(true);
+
     const theme = localStorage.getItem("theme") || "light";
     if (theme === "dark") {
       document.documentElement.classList.add("dark");
@@ -60,11 +67,18 @@ function App() {
   const logout = () => {
     setIsAuthenticated(false);
     setUsername(null);
+    setEditModeState(false);
+    localStorage.removeItem("kachel-edit-mode");
     sessionStorage.removeItem("kachel-auth");
   };
 
+  const setEditMode = (mode: boolean) => {
+    setEditModeState(mode);
+    localStorage.setItem("kachel-edit-mode", String(mode));
+  };
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, username, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, username, editMode, login, logout, setEditMode }}>
       <BrowserRouter>
         <Routes>
           <Route

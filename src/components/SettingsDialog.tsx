@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { X, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/App";
 
 interface ServerConfig {
   hostMode: "local" | "network";
@@ -35,6 +36,7 @@ interface SettingsDialogProps {
 }
 
 const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
+  const { editMode, setEditMode } = useAuth();
   const [serverConfig, setServerConfig] = useState<ServerConfig>(defaultServerConfig);
   const [currentRunning, setCurrentRunning] = useState<ServerConfig | null>(null);
   const [savedConfig, setSavedConfig] = useState<ServerConfig | null>(null);
@@ -60,7 +62,6 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
   const loadConfig = async () => {
     try {
-      // Load server config with running vs saved state
       const res = await fetch("/api/server-config");
       if (!res.ok) throw new Error(`Failed to load config: ${res.status}`);
       const data = await res.json();
@@ -82,7 +83,6 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
         });
       }
 
-      // Pre-fill form with saved config (or running if no file yet)
       const formConfig = data.saved ? {
         hostMode: data.saved.hostMode || "local",
         host: data.saved.networkMode ? "::" : "127.0.0.1",
@@ -156,7 +156,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
       if (data.success) {
         toast.success("Konfiguration gespeichert! Neustart erforderlich.");
-        setSavedConfig({ ...serverConfig }); // Update saved config locally
+        setSavedConfig({ ...serverConfig });
       } else {
         throw new Error(data.error || "Unknown error");
       }
@@ -207,6 +207,24 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
         </DialogHeader>
 
         <div className="space-y-6 py-2">
+          {/* Edit Mode Toggle */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Ansicht</h3>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="edit-mode" className="text-base font-medium">Bearbeitungsmodus</Label>
+              <Switch
+                id="edit-mode"
+                checked={editMode}
+                onCheckedChange={(checked: boolean) => {
+                  setEditMode(checked);
+                  toast.success(checked ? "Bearbeitungsmodus aktiviert." : "Bearbeitungsmodus deaktiviert.");
+                }}
+              />
+            </div>
+          </div>
+
+          <Separator />
+
           {/* Server Section */}
           <div>
             <h3 className="text-lg font-semibold mb-4">Server</h3>
@@ -263,7 +281,6 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                   </Button>
                 </div>
 
-                {/* Current Saved Hosts Display */}
                 {(serverConfig.allowedHosts && serverConfig.allowedHosts.length > 0) && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {serverConfig.allowedHosts.map((host, idx) => (
@@ -288,7 +305,6 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                 <p><span className="text-muted-foreground">Port:</span> {currentRunning?.port}</p>
                 <p><span className="text-muted-foreground">URL:</span> http://{currentRunning?.host === "::" ? "127.0.0.1" : currentRunning?.host}:{currentRunning?.port}</p>
 
-                {/* Restart Notice */}
                 {savedConfig && (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mt-3 text-xs text-yellow-800">
                     Hinweis: Die Änderungen werden nach einem Neustart der Anwendung aktiv. Der Server liest dann die Konfiguration aus <code>data/server-settings.json</code>.

@@ -19,7 +19,7 @@ interface Kachel {
 }
 
 const Dashboard = () => {
-  const { username, logout } = useAuth();
+  const { username, logout, editMode } = useAuth();
   const [kachels, setKachels] = useState<Kachel[]>([]);
   const [loading, setLoading] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -59,7 +59,9 @@ const Dashboard = () => {
     setDialogOpen(true);
   };
 
-  const openEditDialog = (k: Kachel) => {
+  const openEditDialog = (id: string) => {
+    const k = kachels.find((item) => item.id === id);
+    if (!k) return;
     setEditingKachel(k);
     setFormTitle(k.title);
     setFormUrl(k.url);
@@ -140,28 +142,31 @@ const Dashboard = () => {
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">{username}</span>
 
-            {/* Add button */}
-            <Button size="icon" variant="outline" onClick={openCreateDialog} title="Neue Kachel erstellen">
-              <Plus size={18} />
-            </Button>
+            {/* Edit mode buttons: only visible when editMode is true */}
+            {editMode && (
+              <>
+                <Button size="icon" variant="outline" onClick={openCreateDialog} title="Neue Kachel erstellen">
+                  <Plus size={18} />
+                </Button>
 
-            {/* Delete menu */}
-            {kachels.length > 0 && (
-              <DropdownMenu open={deleteMenuOpen} onOpenChange={setDeleteMenuOpen}>
-                <DropdownMenuTrigger asChild>
-                  <Button size="icon" variant="outline">
-                    <Minus size={18} />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64 max-h-[50vh] overflow-y-auto">
-                  <DropdownMenuLabel>Kachel löschen</DropdownMenuLabel>
-                  {kachels.map((k) => (
-                    <DropdownMenuItem key={k.id} onClick={() => handleDeleteKachel(k.id)} className="text-sm">
-                      {k.title || "(Ohne Titel)"}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                {kachels.length > 0 && (
+                  <DropdownMenu open={deleteMenuOpen} onOpenChange={setDeleteMenuOpen}>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="icon" variant="outline">
+                        <Minus size={18} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-64 max-h-[50vh] overflow-y-auto">
+                      <DropdownMenuLabel>Kachel löschen</DropdownMenuLabel>
+                      {kachels.map((k) => (
+                        <DropdownMenuItem key={k.id} onClick={() => handleDeleteKachel(k.id)} className="text-sm">
+                          {k.title || "(Ohne Titel)"}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </>
             )}
 
             <ThemeToggle />
@@ -186,12 +191,12 @@ const Dashboard = () => {
         ) : kachels.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
             <p className="text-lg mb-4">Noch keine Kacheln vorhanden.</p>
-            <Button variant="outline" onClick={openCreateDialog}>Erstelle deine erste</Button>
+            {editMode && <Button variant="outline" onClick={openCreateDialog}>Erstelle deine erste</Button>}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {kachels.map((k) => (
-              <KachelCard key={k.id} {...k} editMode={false} onEditClick={() => openEditDialog(k)} />
+              <KachelCard key={k.id} {...k} editMode={editMode} onEditClick={() => openEditDialog(k.id)} />
             ))}
           </div>
         )}
