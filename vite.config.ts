@@ -16,6 +16,8 @@ try {
   }
 } catch {}
 
+console.log(`[vite.config] Server will start on ${serverSettings.host}:${serverSettings.port}`);
+
 export default defineConfig(() => ({
   server: {
     host: serverSettings.host,

@@ -1,0 +1,5 @@
+{
+  "hostMode": "local",
+  "port": 3000,
+  "networkMode": false
+}
