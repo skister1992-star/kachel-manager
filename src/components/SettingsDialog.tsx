@@ -31,13 +31,9 @@ interface SettingsDialogProps {
 }
 
 const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
-  // Form state - what user is editing
   const [serverConfig, setServerConfig] = useState<ServerConfig>(defaultServerConfig);
-  
-  // Current running config - loaded from server
-  const [currentConfig, setCurrentConfig] = useState<ServerConfig | null>(null);
-  
-  const [lanIp, setLanIp] = useState<string | null>(null);
+  const [currentRunning, setCurrentRunning] = useState<ServerConfig | null>(null);
+  const [savedConfig, setSavedConfig] = useState<ServerConfig | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Auth state
@@ -52,21 +48,37 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
   const loadConfig = async () => {
     try {
+      // Load server config with running vs saved state
       const res = await fetch("/api/server-config");
-      if (!res.ok) throw new Error("Failed to load config");
+      if (!res.ok) throw new Error(`Failed to load config: ${res.status}`);
       const data = await res.json();
-      
-      // Load current running config from server
-      setCurrentConfig({
-        hostMode: data.hostMode || "local",
-        host: data.host || "127.0.0.1",
-        port: data.port || 3000,
+
+      setCurrentRunning({
+        hostMode: data.running?.hostMode || "local",
+        host: data.running?.host || "127.0.0.1",
+        port: Number(data.running?.port) || 3000,
       });
-      
-      setLanIp(data.lanIp || null);
-    } catch {
-      // Fallback to defaults
-      setCurrentConfig(defaultServerConfig);
+
+      if (data.saved) {
+        setSavedConfig({
+          hostMode: data.saved.hostMode || "local",
+          host: data.saved.host || "127.0.0.1",
+          port: Number(data.saved.port) || 3000,
+        });
+      }
+
+      // Pre-fill form with saved config (or running if no file yet)
+      const formConfig = data.saved ? {
+        hostMode: data.saved.hostMode || "local",
+        host: data.saved.networkMode ? "0.0.0.0" : "127.0.0.1",
+        port: Number(data.saved.port) || 3000,
+      } as ServerConfig : defaultServerConfig;
+      setServerConfig(formConfig);
+    } catch (err) {
+      console.error("Failed to load server config:", err);
+      setCurrentRunning(defaultServerConfig);
+      setSavedConfig(null);
+      setServerConfig(defaultServerConfig);
     } finally {
       setLoading(false);
     }
@@ -84,6 +96,8 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
   const handleSaveServerConfig = async () => {
     try {
+      console.log("[SettingsDialog] Sending config:", { hostMode: serverConfig.hostMode, port: serverConfig.port });
+      
       const res = await fetch("/api/server-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -93,14 +107,28 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to save config");
-      
-      const data = await res.json();
-      setCurrentConfig(data.config); // Update current running config after successful save
-      toast.success("Konfiguration gespeichert! Neustart erforderlich.");
-    } catch (error) {
-      console.error("Save error:", error);
-      toast.error("Fehler beim Speichern der Konfiguration.");
+      const text = await res.text();
+      console.log("[SettingsDialog] Response status:", res.status);
+      console.log("[SettingsDialog] Response body:", text);
+
+      if (!res.ok) throw new Error(`Server returned ${res.status}: ${text}`);
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error("Invalid response format");
+      }
+
+      if (data.success) {
+        toast.success("Konfiguration gespeichert! Neustart erforderlich.");
+        setSavedConfig({ ...serverConfig }); // Update saved config locally
+      } else {
+        throw new Error(data.error || "Unknown error");
+      }
+    } catch (error: any) {
+      console.error("[SettingsDialog] Save failed:", error);
+      toast.error(`Fehler beim Speichern: ${error.message}`);
     }
   };
 
@@ -186,23 +214,22 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
               {/* Connection Info */}
               <div className="bg-muted/50 rounded-lg p-4 space-y-2 text-sm">
-                <h4 className="font-medium mb-2">Aktuelle Verbindung</h4>
-                <p><span className="text-muted-foreground">Hostmodus:</span> {currentConfig?.hostMode === "local" ? "Lokal" : "Netzwerk"}</p>
-                <p><span className="text-muted-foreground">Host:</span> {currentConfig?.host}</p>
-                <p><span className="text-muted-foreground">Port:</span> {currentConfig?.port}</p>
-                <p><span className="text-muted-foreground">Lokale URL:</span> http://{currentConfig?.host === "0.0.0.0" ? "127.0.0.1" : currentConfig?.host}:{currentConfig?.port}</p>
-                
-                {lanIp && (
-                  <div>
-                    <p className="mt-2"><span className="text-muted-foreground">LAN-Adresse:</span></p>
-                    <p className="ml-4">http://{lanIp}:{currentConfig?.port}</p>
+                <h4 className="font-medium mb-2">Aktuell läuft</h4>
+                <p><span className="text-muted-foreground">Hostmodus:</span> {currentRunning?.hostMode === "local" ? "Lokal" : "Netzwerk"}</p>
+                <p><span className="text-muted-foreground">Host:</span> {currentRunning?.host}</p>
+                <p><span className="text-muted-foreground">Port:</span> {currentRunning?.port}</p>
+                <p><span className="text-muted-foreground">URL:</span> http://{currentRunning?.host === "::" ? "127.0.0.1" : currentRunning?.host}:{currentRunning?.port}</p>
+
+                {/* Restart Notice */}
+                {savedConfig && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mt-3 text-xs text-yellow-800">
+                    Hinweis: Die Änderungen werden nach einem Neustart der Anwendung aktiv. Der Server liest dann die Konfiguration aus <code>data/server-settings.json</code>.
                   </div>
                 )}
 
-                {/* Restart Notice */}
-                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mt-3 text-xs text-yellow-800">
-                  Hinweis: Die Änderungen werden nach einem Neustart der Anwendung aktiv.
-                </div>
+                {!savedConfig && (
+                  <p className="text-xs text-muted-foreground mt-2">Noch keine Konfigurationsdatei vorhanden.</p>
+                )}
               </div>
 
               {/* Server Actions */}

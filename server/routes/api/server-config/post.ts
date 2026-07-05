@@ -5,10 +5,19 @@ import fs from "node:fs";
 const SETTINGS_PATH = "./data/server-settings.json";
 
 export default defineHandler(async (event) => {
-  const body = await readBody<{ hostMode?: string; port?: number }>(event);
+  let body;
+  
+  try {
+    body = await readBody<{ hostMode?: string; port?: number }>(event);
+    console.log("[server-config POST] Received body:", JSON.stringify(body));
+  } catch (err) {
+    console.error("[server-config POST] Failed to parse body:", err);
+    return new Response(JSON.stringify({ error: "Invalid request body" }), { status: 400 });
+  }
 
   if (!body?.port || !Number.isFinite(body.port)) {
-    return { error: "Valid port is required" };
+    console.log("[server-config POST] Invalid port value");
+    return new Response(JSON.stringify({ error: "Valid port is required" }), { status: 400 });
   }
 
   try {
@@ -24,13 +33,11 @@ export default defineHandler(async (event) => {
     };
 
     fs.writeFileSync(SETTINGS_PATH, JSON.stringify(config, null, 2), "utf-8");
+    console.log("[server-config POST] Saved config:", JSON.stringify(config));
 
-    return {
-      success: true,
-      config,
-    };
+    return new Response(JSON.stringify({ success: true, config }), { status: 200 });
   } catch (error) {
-    console.error("Failed to save server config:", error);
-    return { error: "Could not save configuration" };
+    console.error("[server-config POST] Failed to write config:", error);
+    return new Response(JSON.stringify({ error: "Could not save configuration" }), { status: 500 });
   }
 });
