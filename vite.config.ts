@@ -12,9 +12,18 @@ try {
   if (fs.existsSync(settingsPath)) {
     const parsed = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
     serverSettings.port = typeof parsed.port === "number" ? parsed.port : 8080;
-    serverSettings.host = parsed.networkMode ? "::" : "127.0.0.1";
-    if (parsed.allowedHosts) {
+    
+    // Use network mode host if enabled
+    if (parsed.networkMode) {
+      serverSettings.host = "::";
+    } else {
+      serverSettings.host = "127.0.0.1";
+    }
+    
+    if (parsed.allowedHosts && typeof parsed.allowedHosts === "string") {
       serverSettings.allowedHosts = parsed.allowedHosts.split(",").map((h: string) => h.trim()).filter(Boolean);
+    } else if (Array.isArray(parsed.allowedHosts)) {
+      serverSettings.allowedHosts = parsed.allowedHosts.filter(Boolean);
     }
   }
 } catch {}
