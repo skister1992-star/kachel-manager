@@ -12,20 +12,21 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
+import { X, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 interface ServerConfig {
   hostMode: "local" | "network";
   host: string;
   port: number;
-  allowedHosts?: string;
+  allowedHosts?: string[];
 }
 
 const defaultServerConfig: ServerConfig = {
   hostMode: "local",
   host: "127.0.0.1",
   port: 3000,
+  allowedHosts: [],
 };
 
 interface SettingsDialogProps {
@@ -42,6 +43,9 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   // Auth state
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+
+  // New host input for adding one at a time
+  const [newHost, setNewHost] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -65,23 +69,25 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
         hostMode: data.running?.hostMode || "local",
         host: data.running?.host || "127.0.0.1",
         port: Number(data.running?.port) || 3000,
+        allowedHosts: [],
       });
 
       if (data.saved) {
+        const savedAllowedHosts = parseHosts(data.saved.allowedHosts);
         setSavedConfig({
           hostMode: data.saved.hostMode || "local",
-          host: data.saved.host || "127.0.0.1",
-          port: Number(data.saved.port) || 3000,
-          allowedHosts: data.saved.allowedHosts || "",
+          host: data.saved.networkMode ? "::" : "127.0.0.1",
+          port: Number(data.saved.port) || 8080,
+          allowedHosts: savedAllowedHosts,
         });
       }
 
       // Pre-fill form with saved config (or running if no file yet)
       const formConfig = data.saved ? {
         hostMode: data.saved.hostMode || "local",
-        host: data.saved.networkMode ? "0.0.0.0" : "127.0.0.1",
-        port: Number(data.saved.port) || 3000,
-        allowedHosts: data.saved.allowedHosts || "",
+        host: data.saved.networkMode ? "::" : "127.0.0.1",
+        port: Number(data.saved.port) || 8080,
+        allowedHosts: parseHosts(data.saved.allowedHosts),
       } as ServerConfig : defaultServerConfig;
       setServerConfig(formConfig);
     } catch (err) {
@@ -104,17 +110,34 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
     } catch {}
   };
 
+  const handleAddHost = () => {
+    const host = newHost.trim();
+    if (!host) return;
+    setServerConfig((prev) => ({
+      ...prev,
+      allowedHosts: [...(prev.allowedHosts || []), host],
+    }));
+    setNewHost("");
+  };
+
+  const handleRemoveHost = (index: number) => {
+    setServerConfig((prev) => ({
+      ...prev,
+      allowedHosts: prev.allowedHosts?.filter((_h, i) => i !== index),
+    }));
+  };
+
   const handleSaveServerConfig = async () => {
     try {
       console.log("[SettingsDialog] Sending config:", { hostMode: serverConfig.hostMode, port: serverConfig.port });
-      
+
       const res = await fetch("/api/server-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           hostMode: serverConfig.hostMode,
           port: serverConfig.port,
-          allowedHosts: serverConfig.allowedHosts || "",
+          allowedHosts: (serverConfig.allowedHosts || []).join(","),
         }),
       });
 
@@ -175,8 +198,6 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
     );
   }
 
-  const currentHosts = parseHosts(serverConfig.allowedHosts);
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
@@ -189,7 +210,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           {/* Server Section */}
           <div>
             <h3 className="text-lg font-semibold mb-4">Server</h3>
-            
+
             <div className="space-y-4">
               {/* Host Mode */}
               <div className="flex items-center justify-between">
@@ -232,25 +253,31 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                   <Input
                     id="allowed-hosts"
                     type="text"
-                    value={serverConfig.allowedHosts || ""}
-                    onChange={(e) => setServerConfig({ ...serverConfig, allowedHosts: e.target.value })}
-                    placeholder="localhost, start.sebastian-kister.de (kommagetrennt)"
+                    value={newHost}
+                    onChange={(e) => setNewHost(e.target.value)}
+                    placeholder="Neuen Host eingeben..."
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddHost(); } }}
                   />
-                  <Button variant="outline" size="icon" onClick={() => setServerConfig({...serverConfig, allowedHosts: ""})}>
-                    <X size={16} />
+                  <Button variant="outline" size="icon" onClick={handleAddHost}>
+                    <Plus size={16} />
                   </Button>
                 </div>
 
-                {/* Current Hosts Display */}
-                {currentHosts.length > 0 && (
+                {/* Current Saved Hosts Display */}
+                {(serverConfig.allowedHosts && serverConfig.allowedHosts.length > 0) && (
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {currentHosts.map((host, idx) => (
-                      <Badge key={idx} variant="secondary" className="text-xs py-1 px-2">
+                    {serverConfig.allowedHosts.map((host, idx) => (
+                      <Badge key={idx} variant="secondary" className="text-xs py-1 px-3 cursor-pointer hover:bg-destructive/80 hover:text-white transition-colors" onClick={() => handleRemoveHost(idx)} title="Klicken zum Entfernen">
                         {host}
+                        <X size={12} className="ml-1 inline" />
                       </Badge>
                     ))}
                   </div>
                 )}
+
+                {!serverConfig.allowedHosts || serverConfig.allowedHosts.length === 0 ? (
+                  <p className="text-xs text-muted-foreground mt-1">Keine Hosts eingetragen.</p>
+                ) : null}
               </div>
 
               {/* Connection Info */}
@@ -291,7 +318,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           {/* Auth Section */}
           <div>
             <h3 className="text-lg font-semibold mb-4">Anmeldeinformationen</h3>
-            
+
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="settings-username" className="text-sm">Benutzername</Label>
@@ -302,7 +329,7 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                   placeholder="Benutzername"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="settings-password" className="text-sm">Passwort</Label>
                 <Input
