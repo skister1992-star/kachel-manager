@@ -6,12 +6,12 @@ import fs from "fs";
 import { nitro } from "nitro/vite";
 
 const settingsPath = "./data/server-settings.json";
-let serverSettings = { port: 8080, host: "::", allowedHosts: [] as string[] };
+let serverSettings = { port: 32122, host: "::", allowedHosts: [] as string[] };
 
 try {
   if (fs.existsSync(settingsPath)) {
     const parsed = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-    serverSettings.port = typeof parsed.port === "number" ? parsed.port : 8080;
+    serverSettings.port = typeof parsed.port === "number" ? parsed.port : 32122;
     
     // Use network mode host if enabled
     if (parsed.networkMode) {
