@@ -16,6 +16,7 @@ interface Kachel {
   title: string;
   url: string;
   image?: string;
+  imgPositionX?: number; // 0-100, horizontal offset of the image
 }
 
 const Dashboard = () => {
@@ -30,6 +31,7 @@ const Dashboard = () => {
   const [formTitle, setFormTitle] = useState("");
   const [formUrl, setFormUrl] = useState("");
   const [formImage, setFormImage] = useState("");
+  const [imgPositionX, setImgPositionX] = useState(50); // default center (50%)
   const [uploading, setUploading] = useState(false);
 
   // File input ref for triggering the native file picker
@@ -60,6 +62,7 @@ const Dashboard = () => {
     setFormTitle("");
     setFormUrl("");
     setFormImage("");
+    setImgPositionX(50);
     setDialogOpen(true);
   };
 
@@ -70,7 +73,13 @@ const Dashboard = () => {
     setFormTitle(k.title);
     setFormUrl(k.url);
     setFormImage(k.image || "");
+    setImgPositionX(k.imgPositionX ?? 50);
     setDialogOpen(true);
+  };
+
+  const closeDialog = () => {
+    setDialogOpen(false);
+    setTimeout(() => setEditingKachel(null), 200); // clear after animation
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,7 +131,7 @@ const Dashboard = () => {
         const res = await fetch("/api/kachel", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: editingKachel.id, title: formTitle.trim(), url: formUrl.trim(), image: formImage.trim() }),
+          body: JSON.stringify({ id: editingKachel.id, title: formTitle.trim(), url: formUrl.trim(), image: formImage.trim(), imgPositionX }),
         });
         const result = await res.json();
         if (result.success) {
@@ -136,7 +145,7 @@ const Dashboard = () => {
         const res = await fetch("/api/kachel", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: formTitle.trim(), url: formUrl.trim(), image: formImage.trim() }),
+          body: JSON.stringify({ title: formTitle.trim(), url: formUrl.trim(), image: formImage.trim(), imgPositionX }),
         });
         const result = await res.json();
         if (result.success) {
@@ -149,7 +158,7 @@ const Dashboard = () => {
     } catch {
       toast.error("Server-Verbindung fehlgeschlagen.");
     } finally {
-      setDialogOpen(false);
+      closeDialog();
     }
   };
 
@@ -244,7 +253,7 @@ const Dashboard = () => {
       </main>
 
       {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) setEditingKachel(null); else setDialogOpen(o); }}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); else setDialogOpen(true); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editingKachel ? "Kachel bearbeiten" : "Neue Kachel erstellen"}</DialogTitle>
@@ -268,7 +277,12 @@ const Dashboard = () => {
 
               {formImage && (
                 <div className="rounded-lg overflow-hidden border mb-2 aspect-video relative group">
-                  <img src={formImage} alt="Vorschau" className="w-full h-full object-cover" />
+                  <img
+                    src={formImage}
+                    alt="Vorschau"
+                    className="w-full h-full object-cover"
+                    style={{ backgroundImage: `url(${formImage})`, backgroundPositionX: `${imgPositionX}%` }}
+                  />
                   <Button
                     variant="destructive"
                     size="sm"
@@ -320,6 +334,21 @@ const Dashboard = () => {
                   </div>
                 </>
               ) : null}
+
+              {/* Image position slider - only shown when image is present */}
+              {formImage && (
+                <div className="space-y-2">
+                  <Label htmlFor="img-position-x">Bildposition</Label>
+                  <Input
+                    id="img-position-x"
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={imgPositionX}
+                    onChange={(e) => setImgPositionX(Number(e.target.value))}
+                  />
+                </div>
+              )}
             </div>
 
             <Button className="w-full" onClick={handleSaveDialog}>
