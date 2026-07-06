@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import KachelCard from "@/components/KachelCard";
 import SettingsDialog from "@/components/SettingsDialog";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
-import { Plus, Minus, LogOut, Settings as SettingsIcon, Upload } from "lucide-react";
+import { Plus, Minus, LogOut, Settings as SettingsIcon, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/App";
 
@@ -31,6 +31,9 @@ const Dashboard = () => {
   const [formUrl, setFormUrl] = useState("");
   const [formImage, setFormImage] = useState("");
   const [uploading, setUploading] = useState(false);
+
+  // File input ref for triggering the native file picker
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Delete menu state
   const [deleteMenuOpen, setDeleteMenuOpen] = useState(false);
@@ -77,7 +80,6 @@ const Dashboard = () => {
     // Check file type
     if (!file.type.startsWith("image/")) {
       toast.error("Nur Bilddateien sind erlaubt.");
-      e.target.value = "";
       return;
     }
 
@@ -101,7 +103,10 @@ const Dashboard = () => {
       toast.error("Server-Verbindung fehlgeschlagen.");
     } finally {
       setUploading(false);
-      e.target.value = "";
+      // Reset the file input so the same file can be selected again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
@@ -257,30 +262,64 @@ const Dashboard = () => {
               <Input id="kachel-url" value={formUrl} onChange={(e) => setFormUrl(e.target.value)} placeholder="z.B. https://google.com" />
             </div>
 
-            {/* Image upload */}
+            {/* Image section */}
             <div className="space-y-2">
-              <Label htmlFor="kachel-image">Bild</Label>
+              <Label>Bild</Label>
+
               {formImage && (
-                <div className="rounded-lg overflow-hidden border mb-2 aspect-video relative">
+                <div className="rounded-lg overflow-hidden border mb-2 aspect-video relative group">
                   <img src={formImage} alt="Vorschau" className="w-full h-full object-cover" />
-                  <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={() => setFormImage("")}>×</Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => setFormImage("")}
+                  >
+                    <X size={14} />
+                  </Button>
                 </div>
               )}
-              <div className="flex gap-2">
-                <Input id="kachel-image" value={formImage} onChange={(e) => setFormImage(e.target.value)} placeholder="Bild-URL oder Datei hochladen..." readOnly />
-                <label htmlFor="file-upload" className="shrink-0">
-                  <Button variant="outline" size="icon" disabled={uploading}>
-                    <Upload size={18} />
-                  </Button>
-                  <Input
-                    id="file-upload"
+
+              {!formImage ? (
+                <>
+                  {/* Hidden native file input */}
+                  <input
+                    ref={fileInputRef}
                     type="file"
                     accept="image/*"
                     className="hidden"
                     onChange={handleUpload}
                   />
-                </label>
-              </div>
+
+                  {/* Upload button that triggers the file picker */}
+                  <Button
+                    variant="outline"
+                    className="w-full h-24 flex-col gap-1 border-dashed cursor-pointer"
+                    disabled={uploading}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {uploading ? (
+                      <>Wird hochgeladen...</>
+                    ) : (
+                      <>
+                        <Upload size={24} />
+                        <span className="text-sm">Bild auswählen</span>
+                      </>
+                    )}
+                  </Button>
+
+                  {/* Alternative: URL input */}
+                  <div className="flex gap-2 items-center mt-2">
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">oder URL:</span>
+                    <Input
+                      placeholder="Bild-URL eingeben..."
+                      value={formImage}
+                      onChange={(e) => setFormImage(e.target.value)}
+                      className="h-8"
+                    />
+                  </div>
+                </>
+              ) : null}
             </div>
 
             <Button className="w-full" onClick={handleSaveDialog}>
