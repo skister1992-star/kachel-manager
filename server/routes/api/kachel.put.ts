@@ -3,7 +3,16 @@ import { readBody, createError } from "nitro/h3";
 import { updateKachel } from "../../utils/kachel-data";
 
 export default defineHandler(async (event) => {
-  const body = await readBody<{ id?: string; title?: string; url?: string; image?: string }>(event);
+  const body = await readBody<{ 
+    id?: string; 
+    title?: string; 
+    url?: string; 
+    image?: string; 
+    imgPositionX?: number; 
+    imgPositionY?: number; 
+    imgRotation?: number; 
+    imgFitMode?: string;
+  }>(event);
 
   if (!body?.id) {
     throw createError({ statusCode: 400, statusMessage: "ID is required to update" });
@@ -14,6 +23,10 @@ export default defineHandler(async (event) => {
     title: body.title?.trim(),
     url: body.url?.trim(),
     image: body.image?.trim() || "",
+    imgPositionX: typeof body.imgPositionX === "number" ? body.imgPositionX : undefined,
+    imgPositionY: typeof body.imgPositionY === "number" ? body.imgPositionY : undefined,
+    imgRotation: typeof body.imgRotation === "number" ? body.imgRotation : undefined,
+    imgFitMode: body.imgFitMode || undefined,
   };
 
   if (!updateKachel(body.id, updatedItem)) {

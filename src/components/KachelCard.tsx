@@ -7,12 +7,66 @@ interface KachelCardProps {
   title: string;
   url: string;
   image?: string;
+  imgPositionX?: number;
+  imgPositionY?: number;
+  imgRotation?: number;
+  imgFitMode?: "fill" | "fit-width" | "fit-height" | "center";
   editMode: boolean;
   onEditClick?: (id: string) => void;
 }
 
-const KachelCard = ({ id, title, url, image, editMode, onEditClick }: KachelCardProps) => {
+const KachelCard = ({ id, title, url, image, imgPositionX = 0, imgPositionY = 0, imgRotation = 0, imgFitMode = "fill", editMode, onEditClick }: KachelCardProps) => {
   const [imgError, setImgError] = useState(false);
+
+  const buildImageStyle = () => {
+    if (!image || imgError) return {};
+    const base: React.CSSProperties = {
+      position: "absolute",
+      top: "-50%",
+      left: "-50%",
+      width: "200%",
+      height: "200%",
+      objectFit: "none",
+      transformOrigin: "center center",
+    };
+
+    switch (imgFitMode) {
+      case "fill":
+        base.objectFit = undefined;
+        break;
+      case "fit-width":
+        base.width = "100%";
+        base.height = "auto";
+        base.top = `calc(50% + ${imgPositionY}px)`;
+        base.left = `${imgPositionX}px`;
+        base.transformOrigin = undefined;
+        break;
+      case "fit-height":
+        base.width = "auto";
+        base.height = "100%";
+        base.top = `${imgPositionY}px`;
+        base.left = `calc(50% + ${imgPositionX}px)`;
+        base.transformOrigin = undefined;
+        break;
+      case "center":
+        base.width = "auto";
+        base.height = "100%";
+        base.top = "50%";
+        base.left = "50%";
+        base.transform = `translate(-50%, -50%) rotate(${imgRotation}deg)`;
+        break;
+    }
+
+    if (imgFitMode === "fill") {
+      base.transform = `translate(${imgPositionX}px, ${imgPositionY}px) rotate(${imgRotation}deg)`;
+    } else if (imgFitMode !== "center") {
+      base.transform = `rotate(${imgRotation}deg)`;
+    }
+
+    return base;
+  };
+
+  const imageStyle = buildImageStyle();
 
   return (
     <div>
@@ -23,11 +77,11 @@ const KachelCard = ({ id, title, url, image, editMode, onEditClick }: KachelCard
           onClick={() => onEditClick(id)}
         >
           <div className="aspect-video bg-muted relative overflow-hidden">
-            {!imgError && image ? (
+            {image && !imgError ? (
               <img
                 src={image}
                 alt={title}
-                className="w-full h-full object-cover"
+                style={imageStyle}
                 onError={() => setImgError(true)}
                 onClick={(e) => e.stopPropagation()}
               />
@@ -51,11 +105,11 @@ const KachelCard = ({ id, title, url, image, editMode, onEditClick }: KachelCard
         <a href={url} target="_blank" rel="noopener noreferrer">
           <Card className="overflow-hidden transition-shadow hover:shadow-lg group cursor-pointer">
             <div className="aspect-video bg-muted relative overflow-hidden">
-              {!imgError && image ? (
+              {image && !imgError ? (
                 <img
                   src={image}
                   alt={title}
-                  className="w-full h-full object-cover"
+                  style={imageStyle}
                   onError={() => setImgError(true)}
                 />
               ) : null}
