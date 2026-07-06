@@ -10,7 +10,7 @@ interface KachelCardProps {
   imgPositionX?: number;
   imgPositionY?: number;
   imgRotation?: number;
-  imgFitMode?: "fill" | "fit-width" | "fit-height" | "center";
+  imgFitMode?: string;
   editMode: boolean;
   onEditClick?: (id: string) => void;
 }

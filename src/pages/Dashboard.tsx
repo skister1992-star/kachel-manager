@@ -4,12 +4,13 @@ import { useState, useEffect } from "react";
 import KachelCard from "@/components/KachelCard";
 import SettingsDialog from "@/components/SettingsDialog";
 import ThemeToggle from "@/components/ThemeToggle";
+import ImageEditor from "@/components/ImageEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
-import { Plus, Minus, LogOut, Settings as SettingsIcon } from "lucide-react";
+import { Plus, Minus, LogOut, Settings as SettingsIcon, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/App";
 
@@ -18,6 +19,10 @@ interface Kachel {
   title: string;
   url: string;
   image?: string;
+  imgPositionX?: number;
+  imgPositionY?: number;
+  imgRotation?: number;
+  imgFitMode?: string;
 }
 
 const Dashboard = () => {
@@ -32,6 +37,12 @@ const Dashboard = () => {
   const [formTitle, setFormTitle] = useState("");
   const [formUrl, setFormUrl] = useState("");
   const [formImage, setFormImage] = useState("");
+
+  // Image transform state
+  const [imgPositionX, setImgPositionX] = useState(0);
+  const [imgPositionY, setImgPositionY] = useState(0);
+  const [imgRotation, setImgRotation] = useState(0);
+  const [imgFitMode, setImgFitMode] = useState("center");
 
   // Delete menu state
   const [deleteMenuOpen, setDeleteMenuOpen] = useState(false);
@@ -53,11 +64,19 @@ const Dashboard = () => {
     fetchKachels();
   }, []);
 
+  const resetImageTransform = () => {
+    setImgPositionX(0);
+    setImgPositionY(0);
+    setImgRotation(0);
+    setImgFitMode("center");
+  };
+
   const openCreateDialog = () => {
     setEditingId(null);
     setFormTitle("");
     setFormUrl("");
     setFormImage("");
+    resetImageTransform();
     setDialogOpen(true);
   };
 
@@ -68,6 +87,10 @@ const Dashboard = () => {
     setFormTitle(k.title);
     setFormUrl(k.url);
     setFormImage(k.image || "");
+    setImgPositionX(k.imgPositionX ?? 0);
+    setImgPositionY(k.imgPositionY ?? 0);
+    setImgRotation(k.imgRotation ?? 0);
+    setImgFitMode(k.imgFitMode ?? "center");
     setDialogOpen(true);
   };
 
@@ -83,12 +106,22 @@ const Dashboard = () => {
     }
 
     try {
+      const payload = {
+        title: formTitle.trim(),
+        url: formUrl.trim(),
+        image: formImage.trim() || "",
+        imgPositionX,
+        imgPositionY,
+        imgRotation,
+        imgFitMode,
+      };
+
       if (editingId) {
         // Update existing
         const res = await fetch("/api/kachel", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: editingId, title: formTitle.trim(), url: formUrl.trim(), image: formImage.trim() }),
+          body: JSON.stringify({ ...payload, id: editingId }),
         });
         const result = await res.json();
         if (result.success) {
@@ -102,7 +135,7 @@ const Dashboard = () => {
         const res = await fetch("/api/kachel", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: formTitle.trim(), url: formUrl.trim(), image: formImage.trim() }),
+          body: JSON.stringify(payload),
         });
         const result = await res.json();
         if (result.success) {
@@ -210,7 +243,7 @@ const Dashboard = () => {
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); else setDialogOpen(open); }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingId ? "Kachel bearbeiten" : "Neue Kachel erstellen"}</DialogTitle>
             <DialogDescription>Gib Titel, Link und optional ein Bild an.</DialogDescription>
@@ -228,9 +261,27 @@ const Dashboard = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="kachel-image">Bild-URL (optional)</Label>
-              <Input id="kachel-image" value={formImage} onChange={(e) => setFormImage(e.target.value)} placeholder="https://beispiel.de/bild.jpg" />
+              <Label htmlFor="kachel-image">Bild</Label>
+              <div className="flex gap-2">
+                <Input id="kachel-image" value={formImage} onChange={(e) => setFormImage(e.target.value)} placeholder="https://beispiel.de/bild.jpg" className="flex-1" />
+                <Button variant="outline" size="icon" onClick={() => { /* trigger upload handled in ImageEditor */ }}>
+                  <Upload size={16} />
+                </Button>
+              </div>
             </div>
+
+            {/* Image Editor */}
+            <ImageEditor
+              imageUrl={formImage}
+              onImageUrlChange={(url) => setFormImage(url)}
+              imgPositionX={imgPositionX}
+              imgPositionY={imgPositionY}
+              imgRotation={imgRotation}
+              imgFitMode={imgFitMode}
+              onImgPositionChange={(x, y) => { setImgPositionX(x); setImgPositionY(y); }}
+              onImgRotationChange={(rot) => setImgRotation(rot)}
+              onImgFitModeChange={(mode) => setImgFitMode(mode)}
+            />
 
             <Button className="w-full" onClick={handleSaveDialog}>
               {editingId ? "Speichern" : "Erstellen"}
