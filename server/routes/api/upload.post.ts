@@ -33,6 +33,5 @@ export default defineHandler(async (event) => {
   const buffer = Buffer.from(await (file as Blob).arrayBuffer());
   fs.writeFileSync(filePath, buffer);
 
-  // Return the URL that can be accessed from the frontend
   return { success: true, url: `/data/uploads/${fileName}` };
 });
