@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
-import { Plus, Minus, LogOut, Settings as SettingsIcon, Upload, X, MoveHorizontal, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { Plus, Minus, LogOut, Settings as SettingsIcon, Upload, X, RotateCw, ZoomIn, ZoomOut, Maximize2, MoveHorizontal, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/App";
 
@@ -18,7 +18,9 @@ interface Kachel {
   image?: string;
   imgFit?: "fill" | "contain" | "cover" | "fit-width" | "fit-height";
   imgPositionX?: number; // 0-100, horizontal offset of the image
+  imgPositionY?: number; // 0-100, vertical offset of the image
   imgZoom?: number; // zoom percentage, default 100
+  imgRotation?: number; // degrees, 0-360, default 0
 }
 
 type ImgFit = NonNullable<Kachel["imgFit"]>;
@@ -44,8 +46,10 @@ const Dashboard = () => {
   const [formUrl, setFormUrl] = useState("");
   const [formImage, setFormImage] = useState("");
   const [imgPositionX, setImgPositionX] = useState(50); // default center (50%)
+  const [imgPositionY, setImgPositionY] = useState(50); // default center (50%)
   const [imgFit, setImgFit] = useState<ImgFit>("cover");
   const [imgZoom, setImgZoom] = useState(100);
+  const [imgRotation, setImgRotation] = useState(0);
   const [uploading, setUploading] = useState(false);
 
   // File input ref for triggering the native file picker
@@ -53,6 +57,14 @@ const Dashboard = () => {
 
   // Delete menu state
   const [deleteMenuOpen, setDeleteMenuOpen] = useState(false);
+
+  // Dragging state for free image movement in preview
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const dragPosStartRef = useRef({ x: 50, y: 50 });
+
+  // Preview container ref for drag calculations
+  const previewRef = useRef<HTMLDivElement>(null);
 
   const fetchKachels = async () => {
     try {
@@ -76,9 +88,7 @@ const Dashboard = () => {
     setFormTitle("");
     setFormUrl("");
     setFormImage("");
-    setImgPositionX(50);
-    setImgFit("cover");
-    setImgZoom(100);
+    resetImageSettings();
     setDialogOpen(true);
   };
 
@@ -90,8 +100,10 @@ const Dashboard = () => {
     setFormUrl(k.url);
     setFormImage(k.image || "");
     setImgPositionX(k.imgPositionX ?? 50);
+    setImgPositionY(k.imgPositionY ?? 50);
     setImgFit((k.imgFit as ImgFit) || "cover");
     setImgZoom(k.imgZoom ?? 100);
+    setImgRotation(k.imgRotation ?? 0);
     setDialogOpen(true);
   };
 
@@ -99,6 +111,54 @@ const Dashboard = () => {
     setDialogOpen(false);
     setTimeout(() => setEditingKachel(null), 200); // clear after animation
   };
+
+  const resetImageSettings = () => {
+    setImgFit("cover");
+    setImgPositionX(50);
+    setImgPositionY(50);
+    setImgZoom(100);
+    setImgRotation(0);
+  };
+
+  // Drag handlers for free image movement in preview
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!formImage || imgFit === "contain") return;
+    e.preventDefault();
+    setIsDragging(true);
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    dragPosStartRef.current = { x: imgPositionX, y: imgPositionY };
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging || !previewRef.current) return;
+
+      const rect = previewRef.current.getBoundingClientRect();
+      const dx = e.clientX - dragStartRef.current.x;
+      const dy = e.clientY - dragStartRef.current.y;
+
+      // Convert pixel delta to percentage of container size
+      const pctX = (dx / rect.width) * 100;
+      const pctY = (dy / rect.height) * 100;
+
+      setImgPositionX(Math.max(0, Math.min(100, dragPosStartRef.current.x - pctX)));
+      setImgPositionY(Math.max(0, Math.min(100, dragPosStartRef.current.y - pctY)));
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDragging]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -149,7 +209,7 @@ const Dashboard = () => {
         const res = await fetch("/api/kachel", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: editingKachel.id, title: formTitle.trim(), url: formUrl.trim(), image: formImage.trim(), imgPositionX, imgFit, imgZoom }),
+          body: JSON.stringify({ id: editingKachel.id, title: formTitle.trim(), url: formUrl.trim(), image: formImage.trim(), imgPositionX, imgPositionY, imgFit, imgZoom, imgRotation }),
         });
         const result = await res.json();
         if (result.success) {
@@ -163,7 +223,7 @@ const Dashboard = () => {
         const res = await fetch("/api/kachel", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: formTitle.trim(), url: formUrl.trim(), image: formImage.trim(), imgPositionX, imgFit, imgZoom }),
+          body: JSON.stringify({ title: formTitle.trim(), url: formUrl.trim(), image: formImage.trim(), imgPositionX, imgPositionY, imgFit, imgZoom, imgRotation }),
         });
         const result = await res.json();
         if (result.success) {
@@ -205,33 +265,82 @@ const Dashboard = () => {
   const buildBgStyle = () => {
     if (!formImage) return {};
     const posX = `${imgPositionX}%`;
-    const zoomedSize = `calc(${Math.max(imgZoom, 5)}% / ${imgZoom > 100 ? imgZoom / 100 : 1})`;
+    const posY = `${imgPositionY}%`;
+    const rotation = `rotate(${imgRotation}deg)`;
 
     switch (imgFit) {
       case "fill":
-        return { backgroundImage: `url(${formImage})`, backgroundSize: "100% 100%", backgroundPosition: `${posX} center`, backgroundRepeat: "no-repeat" };
+        return { backgroundImage: `url(${formImage})`, backgroundSize: "100% 100%", backgroundPosition: `${posX} ${posY}`, backgroundRepeat: "no-repeat", transformOrigin: "center center" };
       case "contain":
-        return { backgroundImage: `url(${formImage})`, backgroundSize: zoomedSize, backgroundPosition: `center center`, backgroundRepeat: "no-repeat" };
+        return { backgroundImage: `url(${formImage})`, backgroundSize: `calc(${Math.max(imgZoom, 5)}% / ${imgZoom > 100 ? imgZoom / 100 : 1})`, backgroundPosition: `${posX} ${posY}`, backgroundRepeat: "no-repeat" };
       case "cover":
-        return { backgroundImage: `url(${formImage})`, backgroundSize: `${Math.max(imgZoom, 100)}%`, backgroundPosition: `${posX} center`, backgroundRepeat: "no-repeat" };
+        return { backgroundImage: `url(${formImage})`, backgroundSize: `${Math.max(imgZoom, 100)}%`, backgroundPosition: `${posX} ${posY}`, backgroundRepeat: "no-repeat" };
       case "fit-width":
         return { backgroundImage: `url(${formImage})`, backgroundSize: `calc(100% * ${Math.max(imgZoom, 100) / 100}) auto`, backgroundPosition: `${posX} top`, backgroundRepeat: "no-repeat" };
       case "fit-height":
         return { backgroundImage: `url(${formImage})`, backgroundSize: `auto calc(100% * ${Math.max(imgZoom, 100) / 100})`, backgroundPosition: `${posX} top`, backgroundRepeat: "no-repeat" };
       default:
-        return { backgroundImage: `url(${formImage})`, backgroundSize: "cover", backgroundPosition: `${posX} center`, backgroundRepeat: "no-repeat" };
+        return { backgroundImage: `url(${formImage})`, backgroundSize: "cover", backgroundPosition: `${posX} ${posY}`, backgroundRepeat: "no-repeat" };
     }
   };
 
   const bgStyle = buildBgStyle();
 
+  // Apply rotation to the preview container via transform
+  const applyRotationTransform = () => {
+    if (!formImage) return {};
+    return {
+      ...bgStyle,
+      backgroundImage: `url(${formImage})`,
+      backgroundSize: imgFit === "contain" 
+        ? `calc(${Math.max(imgZoom, 5)}% / ${imgZoom > 100 ? imgZoom / 100 : 1})`
+        : `${Math.max(imgZoom, 100)}%`,
+      backgroundPosition: `${imgPositionX}% ${imgPositionY}%`,
+      transformOrigin: "center center",
+      transform: `rotate(${imgRotation}deg)`,
+    };
+  };
+
+  const rotatedStyle = applyRotationTransform();
+
+  // For the main card display, we need to account for rotation in the aspect-video container
+  const getCardImageStyle = (kachel: Kachel) => {
+    if (!kachel.image || !kachel.imgFit) return {};
+    
+    const posX = `${kachel.imgPositionX ?? 50}%`;
+    const posY = `${kachel.imgPositionY ?? 50}%`;
+    const zoom = kachel.imgZoom ?? 100;
+    const rotation = `rotate(${kachel.imgRotation ?? 0}deg)`;
+
+    switch (kachel.imgFit) {
+      case "fill":
+        return { backgroundSize: "100% 100%", backgroundPosition: `${posX} ${posY}`, transformOrigin: "center center", transform: rotation };
+      case "contain":
+        return { 
+          backgroundSize: `calc(${Math.max(zoom, 5)}% / ${zoom > 100 ? zoom / 100 : 1})`, 
+          backgroundPosition: `${posX} ${posY}`,
+          transformOrigin: "center center",
+          transform: rotation,
+        };
+      case "cover":
+        return { 
+          backgroundSize: `${Math.max(zoom, 100)}%`, 
+          backgroundPosition: `${posX} ${posY}`,
+          transformOrigin: "center center",
+          transform: rotation,
+        };
+      default:
+        return { 
+          backgroundSize: "cover", 
+          backgroundPosition: `${posX} ${posY}`,
+          transformOrigin: "center center",
+          transform: rotation,
+        };
+    }
+  };
+
   const zoomIn = () => setImgZoom((prev) => Math.min(prev + 10, 500));
   const zoomOut = () => setImgZoom((prev) => Math.max(prev - 10, 5));
-  const resetImage = () => {
-    setImgFit("cover");
-    setImgPositionX(50);
-    setImgZoom(100);
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -304,7 +413,7 @@ const Dashboard = () => {
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); else setDialogOpen(open); }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingKachel ? "Kachel bearbeiten" : "Neue Kachel erstellen"}</DialogTitle>
             <DialogDescription>Gib Titel, Link und optional ein Bild an.</DialogDescription>
@@ -327,8 +436,13 @@ const Dashboard = () => {
 
               {formImage && (
                 <>
-                  {/* Preview with applied style */}
-                  <div className="rounded-lg overflow-hidden border mb-2 aspect-video relative group" style={bgStyle}>
+                  {/* Preview with applied style and drag support */}
+                  <div 
+                    ref={previewRef}
+                    className={`rounded-lg overflow-hidden border mb-2 aspect-video relative group ${isDragging ? "cursor-grabbing" : imgFit !== "contain" ? "cursor-grab" : ""}`}
+                    onMouseDown={handleMouseDown}
+                    style={rotatedStyle}
+                  >
                     <Button
                       variant="destructive"
                       size="sm"
@@ -371,25 +485,42 @@ const Dashboard = () => {
                     <Button variant="outline" size="icon" onClick={zoomIn}><ZoomIn size={14} /></Button>
                   </div>
 
-                  {/* Horizontal position slider */}
+                  {/* Rotation slider - replaces horizontal position */}
                   {imgFit !== "contain" && (
                     <div className="space-y-1">
-                      <Label htmlFor="img-position-x" className="text-xs flex items-center gap-1">
-                        <MoveHorizontal size={12} /> Bildposition horizontal
+                      <Label htmlFor="img-rotation" className="text-xs flex items-center gap-1">
+                        <RotateCw size={12} /> Bildrotation: {imgRotation}°
                       </Label>
                       <Input
-                        id="img-position-x"
+                        id="img-rotation"
+                        type="range"
+                        min={0}
+                        max={360}
+                        value={imgRotation}
+                        onChange={(e) => setImgRotation(Number(e.target.value))}
+                      />
+                    </div>
+                  )}
+
+                  {/* Vertical position slider */}
+                  {imgFit !== "contain" && (
+                    <div className="space-y-1">
+                      <Label htmlFor="img-position-y" className="text-xs flex items-center gap-1">
+                        <MoveHorizontal size={12} /> Bildposition vertikal
+                      </Label>
+                      <Input
+                        id="img-position-y"
                         type="range"
                         min={0}
                         max={100}
-                        value={imgPositionX}
-                        onChange={(e) => setImgPositionX(Number(e.target.value))}
+                        value={imgPositionY}
+                        onChange={(e) => setImgPositionY(Number(e.target.value))}
                       />
                     </div>
                   )}
 
                   {/* Reset button */}
-                  <Button variant="outline" size="sm" onClick={resetImage}>
+                  <Button variant="outline" size="sm" onClick={resetImageSettings}>
                     <Maximize2 size={14} className="mr-1" /> Zurücksetzen
                   </Button>
                 </>
@@ -438,6 +569,8 @@ const Dashboard = () => {
             </div>
 
             <Button className="w-full" onClick={handleSaveDialog}>
+
+
               {editingKachel ? "Speichern" : "Erstellen"}
             </Button>
           </div>
