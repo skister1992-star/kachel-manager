@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
-import { Plus, Minus, LogOut, Settings as SettingsIcon, Upload } from "lucide-react";
+import { Plus, Minus, LogOut, Settings as SettingsIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/App";
 
@@ -122,7 +122,6 @@ const Dashboard = () => {
       };
 
       if (editingId) {
-        // Update existing
         const res = await fetch("/api/kachel", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -136,157 +135,6 @@ const Dashboard = () => {
           toast.error(result.error || "Konnte Kachel nicht aktualisieren.");
         }
       } else {
-        // Create new
-        const res = await fetch("/api/kachel", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const result = await res.json();
-        if (result.success) {
-          toast.success("Kachel erstellt!");
-
-
-<dyad-write path="src/pages/Dashboard.tsx" description="Adding imgZoom state and passing it through to ImageEditor and API">
-"use client";
-
-import { useState, useEffect } from "react";
-import KachelCard from "@/components/KachelCard";
-import SettingsDialog from "@/components/SettingsDialog";
-import ThemeToggle from "@/components/ThemeToggle";
-import ImageEditor from "@/components/ImageEditor";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
-import { Plus, Minus, LogOut, Settings as SettingsIcon, Upload } from "lucide-react";
-import { toast } from "sonner";
-import { useAuth } from "@/App";
-
-interface Kachel {
-  id: string;
-  title: string;
-  url: string;
-  image?: string;
-  imgPositionX?: number;
-  imgPositionY?: number;
-  imgRotation?: number;
-  imgZoom?: number;
-  imgFitMode?: string;
-}
-
-const Dashboard = () => {
-  const { username, logout, editMode } = useAuth();
-  const [kachels, setKachels] = useState<Kachel[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-
-  // Create/Edit dialog state
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [formTitle, setFormTitle] = useState("");
-  const [formUrl, setFormUrl] = useState("");
-  const [formImage, setFormImage] = useState("");
-
-  // Image transform state
-  const [imgPositionX, setImgPositionX] = useState(0);
-  const [imgPositionY, setImgPositionY] = useState(0);
-  const [imgRotation, setImgRotation] = useState(0);
-  const [imgZoom, setImgZoom] = useState(0);
-  const [imgFitMode, setImgFitMode] = useState("center");
-
-  // Delete menu state
-  const [deleteMenuOpen, setDeleteMenuOpen] = useState(false);
-
-  const fetchKachels = async () => {
-    try {
-      const res = await fetch("/api/kachel");
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      setKachels(data || []);
-    } catch {
-      toast.error("Konnte Kacheln nicht laden.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchKachels();
-  }, []);
-
-  const resetImageTransform = () => {
-    setImgPositionX(0);
-    setImgPositionY(0);
-    setImgRotation(0);
-    setImgZoom(0);
-    setImgFitMode("center");
-  };
-
-  const openCreateDialog = () => {
-    setEditingId(null);
-    setFormTitle("");
-    setFormUrl("");
-    setFormImage("");
-    resetImageTransform();
-    setDialogOpen(true);
-  };
-
-  const openEditDialog = (id: string) => {
-    const k = kachels.find((item) => item.id === id);
-    if (!k) return;
-    setEditingId(id);
-    setFormTitle(k.title);
-    setFormUrl(k.url);
-    setFormImage(k.image || "");
-    setImgPositionX(k.imgPositionX ?? 0);
-    setImgPositionY(k.imgPositionY ?? 0);
-    setImgRotation(k.imgRotation ?? 0);
-    setImgZoom(k.imgZoom ?? 0);
-    setImgFitMode(k.imgFitMode ?? "center");
-    setDialogOpen(true);
-  };
-
-  const closeDialog = () => {
-    setDialogOpen(false);
-    setTimeout(() => setEditingId(null), 200);
-  };
-
-  const handleSaveDialog = async () => {
-    if (!formTitle.trim() || !formUrl.trim()) {
-      toast.error("Titel und Link sind erforderlich.");
-      return;
-    }
-
-    try {
-      const payload = {
-        title: formTitle.trim(),
-        url: formUrl.trim(),
-        image: formImage.trim() || "",
-        imgPositionX,
-        imgPositionY,
-        imgRotation,
-        imgZoom,
-        imgFitMode,
-      };
-
-      if (editingId) {
-        // Update existing
-        const res = await fetch("/api/kachel", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...payload, id: editingId }),
-        });
-        const result = await res.json();
-        if (result.success) {
-          toast.success("Kachel aktualisiert!");
-          fetchKachels();
-        } else {
-          toast.error(result.error || "Konnte Kachel nicht aktualisieren.");
-        }
-      } else {
-        // Create new
         const res = await fetch("/api/kachel", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -415,17 +263,7 @@ const Dashboard = () => {
               <Input id="kachel-url" value={formUrl} onChange={(e) => setFormUrl(e.target.value)} placeholder="z.B. https://google.com" />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="kachel-image">Bild</Label>
-              <div className="flex gap-2">
-                <Input id="kachel-image" value={formImage} onChange={(e) => setFormImage(e.target.value)} placeholder="https://beispiel.de/bild.jpg" className="flex-1" />
-                <Button variant="outline" size="icon" onClick={() => { /* trigger upload handled in ImageEditor */ }}>
-                  <Upload size={16} />
-                </Button>
-              </div>
-            </div>
-
-            {/* Image Editor */}
+            {/* Image Editor with upload, drag, rotation, zoom, fit modes */}
             <ImageEditor
               imageUrl={formImage}
               onImageUrlChange={(url) => setFormImage(url)}

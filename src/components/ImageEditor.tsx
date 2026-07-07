@@ -38,7 +38,6 @@ const ImageEditor = ({
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
 
-  // Disable dragging/panning in "fill" mode since the image is locked
   const canPan = imgFitMode !== "fill";
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,16 +68,16 @@ const ImageEditor = ({
   };
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (!canPan) return;
+    if (!canPan || !imageUrl) return;
     e.preventDefault();
     setIsDragging(true);
     dragStart.current = { x: e.clientX, y: e.clientY, posX: imgPositionX, posY: imgPositionY };
-  }, [imgPositionX, imgPositionY, canPan]);
+  }, [imgPositionX, imgPositionY, canPan, imageUrl]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!isDragging || !canPan) return;
-    const dx = (e.clientX - dragStart.current.x);
-    const dy = (e.clientY - dragStart.current.y);
+    const dx = e.clientX - dragStart.current.x;
+    const dy = e.clientY - dragStart.current.y;
     onImgPositionChange(dragStart.current.posX + dx, dragStart.current.posY + dy);
   }, [isDragging, canPan, onImgPositionChange]);
 
@@ -86,13 +85,54 @@ const ImageEditor = ({
     setIsDragging(false);
   }, []);
 
+  const getImageStyle = (): React.CSSProperties => {
+    if (!imageUrl) return {};
+
+    if (imgFitMode === "fill") {
+      return {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        objectFit: "none",
+      };
+    }
+
+    const baseStyle: React.CSSProperties = {
+      position: "absolute",
+      top: "50%",
+      left: "50%",
+      transformOrigin: "center center",
+      pointerEvents: "none",
+      userSelect: "none",
+    };
+
+    if (imgFitMode === "fit-width") {
+      baseStyle.width = "100%";
+      baseStyle.height = "auto";
+    } else if (imgFitMode === "fit-height") {
+      baseStyle.width = "auto";
+      baseStyle.height = "100%";
+    } else {
+      baseStyle.maxWidth = "100%";
+      baseStyle.maxHeight = "100%";
+    }
+
+    const scale = 1 + imgZoom / 100;
+    baseStyle.transform = `translate(calc(-50% + ${imgPositionX}px), calc(-50% + ${imgPositionY}px)) rotate(${imgRotation}deg) scale(${scale})`;
+
+    return baseStyle;
+  };
+
+  const imageStyle = getImageStyle();
+
   return (
     <div className="space-y-4">
-      {/* Image preview window */}
       <Label className="text-sm font-medium block">Vorschau</Label>
       <div
         ref={previewRef}
-        className={`aspect-video bg-muted border rounded-lg relative overflow-hidden select-none ${canPan ? "cursor-move" : ""}`}
+        className={`aspect-video bg-muted border rounded-lg relative overflow-hidden select-none ${canPan && imageUrl ? "cursor-grab active:cursor-grabbing" : ""}`}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -103,17 +143,9 @@ const ImageEditor = ({
           <img
             src={imageUrl}
             alt="Vorschau"
-            className={`absolute pointer-events-none select-none ${canPan ? "" : "w-full h-full object-cover"}`}
             draggable={false}
-            style={{
-              // For non-fill modes: center + pan + zoom
-              top: imgFitMode !== "fill" ? "50%" : undefined,
-              left: imgFitMode !== "fill" ? "50%" : undefined,
-              transformOrigin: "center center",
-              transform: imgFitMode === "fill"
-                ? undefined
-                : `translate(calc(-50% + ${imgPositionX}px), calc(-50% + ${imgPositionY}px)) rotate(${imgRotation}deg) scale(${1 + imgZoom / 100})`,
-            }}
+            className="select-none"
+            style={imageStyle}
           />
         ) : (
           <div className="flex items-center justify-center w-full h-full text-muted-foreground">
@@ -122,14 +154,12 @@ const ImageEditor = ({
         )}
       </div>
 
-      {/* Upload button */}
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
       <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full">
         <Upload size={16} className="mr-2" />
         Bild hochladen
       </Button>
 
-      {/* Fit mode buttons */}
       <div className="space-y-2">
         <Label className="text-sm font-medium block">Anpassung</Label>
         <div className="grid grid-cols-4 gap-1">
@@ -172,7 +202,6 @@ const ImageEditor = ({
         </div>
       </div>
 
-      {/* Zoom slider */}
       <div className="space-y-2">
         <Label className="text-sm font-medium flex items-center justify-between">
           <span className="flex items-center gap-2">
@@ -192,7 +221,6 @@ const ImageEditor = ({
         />
       </div>
 
-      {/* Rotation slider */}
       <div className="space-y-2">
         <Label className="text-sm font-medium flex items-center gap-2">
           <RotateCw size={14} />

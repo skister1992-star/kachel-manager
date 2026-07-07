@@ -10,63 +10,58 @@ interface KachelCardProps {
   imgPositionX?: number;
   imgPositionY?: number;
   imgRotation?: number;
+  imgZoom?: number;
   imgFitMode?: string;
   editMode: boolean;
   onEditClick?: (id: string) => void;
 }
 
-const KachelCard = ({ id, title, url, image, imgPositionX = 0, imgPositionY = 0, imgRotation = 0, imgFitMode = "fill", editMode, onEditClick }: KachelCardProps) => {
+const KachelCard = ({ id, title, url, image, imgPositionX = 0, imgPositionY = 0, imgRotation = 0, imgZoom = 0, imgFitMode = "center", editMode, onEditClick }: KachelCardProps) => {
   const [imgError, setImgError] = useState(false);
 
-  const buildImageStyle = () => {
+  // Determine image CSS based on fit mode — same logic as ImageEditor
+  const getImageStyle = (): React.CSSProperties => {
     if (!image || imgError) return {};
-    const base: React.CSSProperties = {
-      position: "absolute",
-      top: "-50%",
-      left: "-50%",
-      width: "200%",
-      height: "200%",
-      objectFit: "none",
-      transformOrigin: "center center",
-    };
-
-    switch (imgFitMode) {
-      case "fill":
-        base.objectFit = undefined;
-        break;
-      case "fit-width":
-        base.width = "100%";
-        base.height = "auto";
-        base.top = `calc(50% + ${imgPositionY}px)`;
-        base.left = `${imgPositionX}px`;
-        base.transformOrigin = undefined;
-        break;
-      case "fit-height":
-        base.width = "auto";
-        base.height = "100%";
-        base.top = `${imgPositionY}px`;
-        base.left = `calc(50% + ${imgPositionX}px)`;
-        base.transformOrigin = undefined;
-        break;
-      case "center":
-        base.width = "auto";
-        base.height = "100%";
-        base.top = "50%";
-        base.left = "50%";
-        base.transform = `translate(-50%, -50%) rotate(${imgRotation}deg)`;
-        break;
-    }
 
     if (imgFitMode === "fill") {
-      base.transform = `translate(${imgPositionX}px, ${imgPositionY}px) rotate(${imgRotation}deg)`;
-    } else if (imgFitMode !== "center") {
-      base.transform = `rotate(${imgRotation}deg)`;
+      return {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        objectFit: "none",
+      };
     }
 
-    return base;
+    const baseStyle: React.CSSProperties = {
+      position: "absolute",
+      top: "50%",
+      left: "50%",
+      transformOrigin: "center center",
+      pointerEvents: "none",
+      userSelect: "none",
+    };
+
+    if (imgFitMode === "fit-width") {
+      baseStyle.width = "100%";
+      baseStyle.height = "auto";
+    } else if (imgFitMode === "fit-height") {
+      baseStyle.width = "auto";
+      baseStyle.height = "100%";
+    } else {
+      // "center" — natural size, but cap to container so it doesn't overflow too much
+      baseStyle.maxWidth = "100%";
+      baseStyle.maxHeight = "100%";
+    }
+
+    const scale = 1 + imgZoom / 100;
+    baseStyle.transform = `translate(calc(-50% + ${imgPositionX}px), calc(-50% + ${imgPositionY}px)) rotate(${imgRotation}deg) scale(${scale})`;
+
+    return baseStyle;
   };
 
-  const imageStyle = buildImageStyle();
+  const imageStyle = getImageStyle();
 
   return (
     <div>
