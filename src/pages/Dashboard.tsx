@@ -22,6 +22,7 @@ interface Kachel {
   imgPositionX?: number;
   imgPositionY?: number;
   imgRotation?: number;
+  imgZoom?: number;
   imgFitMode?: string;
 }
 
@@ -42,6 +43,7 @@ const Dashboard = () => {
   const [imgPositionX, setImgPositionX] = useState(0);
   const [imgPositionY, setImgPositionY] = useState(0);
   const [imgRotation, setImgRotation] = useState(0);
+  const [imgZoom, setImgZoom] = useState(0);
   const [imgFitMode, setImgFitMode] = useState("center");
 
   // Delete menu state
@@ -68,6 +70,7 @@ const Dashboard = () => {
     setImgPositionX(0);
     setImgPositionY(0);
     setImgRotation(0);
+    setImgZoom(0);
     setImgFitMode("center");
   };
 
@@ -90,6 +93,7 @@ const Dashboard = () => {
     setImgPositionX(k.imgPositionX ?? 0);
     setImgPositionY(k.imgPositionY ?? 0);
     setImgRotation(k.imgRotation ?? 0);
+    setImgZoom(k.imgZoom ?? 0);
     setImgFitMode(k.imgFitMode ?? "center");
     setDialogOpen(true);
   };
@@ -113,6 +117,157 @@ const Dashboard = () => {
         imgPositionX,
         imgPositionY,
         imgRotation,
+        imgZoom,
+        imgFitMode,
+      };
+
+      if (editingId) {
+        // Update existing
+        const res = await fetch("/api/kachel", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...payload, id: editingId }),
+        });
+        const result = await res.json();
+        if (result.success) {
+          toast.success("Kachel aktualisiert!");
+          fetchKachels();
+        } else {
+          toast.error(result.error || "Konnte Kachel nicht aktualisieren.");
+        }
+      } else {
+        // Create new
+        const res = await fetch("/api/kachel", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const result = await res.json();
+        if (result.success) {
+          toast.success("Kachel erstellt!");
+
+
+<dyad-write path="src/pages/Dashboard.tsx" description="Adding imgZoom state and passing it through to ImageEditor and API">
+"use client";
+
+import { useState, useEffect } from "react";
+import KachelCard from "@/components/KachelCard";
+import SettingsDialog from "@/components/SettingsDialog";
+import ThemeToggle from "@/components/ThemeToggle";
+import ImageEditor from "@/components/ImageEditor";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
+import { Plus, Minus, LogOut, Settings as SettingsIcon, Upload } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/App";
+
+interface Kachel {
+  id: string;
+  title: string;
+  url: string;
+  image?: string;
+  imgPositionX?: number;
+  imgPositionY?: number;
+  imgRotation?: number;
+  imgZoom?: number;
+  imgFitMode?: string;
+}
+
+const Dashboard = () => {
+  const { username, logout, editMode } = useAuth();
+  const [kachels, setKachels] = useState<Kachel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Create/Edit dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formTitle, setFormTitle] = useState("");
+  const [formUrl, setFormUrl] = useState("");
+  const [formImage, setFormImage] = useState("");
+
+  // Image transform state
+  const [imgPositionX, setImgPositionX] = useState(0);
+  const [imgPositionY, setImgPositionY] = useState(0);
+  const [imgRotation, setImgRotation] = useState(0);
+  const [imgZoom, setImgZoom] = useState(0);
+  const [imgFitMode, setImgFitMode] = useState("center");
+
+  // Delete menu state
+  const [deleteMenuOpen, setDeleteMenuOpen] = useState(false);
+
+  const fetchKachels = async () => {
+    try {
+      const res = await fetch("/api/kachel");
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      setKachels(data || []);
+    } catch {
+      toast.error("Konnte Kacheln nicht laden.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchKachels();
+  }, []);
+
+  const resetImageTransform = () => {
+    setImgPositionX(0);
+    setImgPositionY(0);
+    setImgRotation(0);
+    setImgZoom(0);
+    setImgFitMode("center");
+  };
+
+  const openCreateDialog = () => {
+    setEditingId(null);
+    setFormTitle("");
+    setFormUrl("");
+    setFormImage("");
+    resetImageTransform();
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (id: string) => {
+    const k = kachels.find((item) => item.id === id);
+    if (!k) return;
+    setEditingId(id);
+    setFormTitle(k.title);
+    setFormUrl(k.url);
+    setFormImage(k.image || "");
+    setImgPositionX(k.imgPositionX ?? 0);
+    setImgPositionY(k.imgPositionY ?? 0);
+    setImgRotation(k.imgRotation ?? 0);
+    setImgZoom(k.imgZoom ?? 0);
+    setImgFitMode(k.imgFitMode ?? "center");
+    setDialogOpen(true);
+  };
+
+  const closeDialog = () => {
+    setDialogOpen(false);
+    setTimeout(() => setEditingId(null), 200);
+  };
+
+  const handleSaveDialog = async () => {
+    if (!formTitle.trim() || !formUrl.trim()) {
+      toast.error("Titel und Link sind erforderlich.");
+      return;
+    }
+
+    try {
+      const payload = {
+        title: formTitle.trim(),
+        url: formUrl.trim(),
+        image: formImage.trim() || "",
+        imgPositionX,
+        imgPositionY,
+        imgRotation,
+        imgZoom,
         imgFitMode,
       };
 
@@ -277,9 +432,11 @@ const Dashboard = () => {
               imgPositionX={imgPositionX}
               imgPositionY={imgPositionY}
               imgRotation={imgRotation}
+              imgZoom={imgZoom}
               imgFitMode={imgFitMode}
               onImgPositionChange={(x, y) => { setImgPositionX(x); setImgPositionY(y); }}
               onImgRotationChange={(rot) => setImgRotation(rot)}
+              onImgZoomChange={(zoom) => setImgZoom(zoom)}
               onImgFitModeChange={(mode) => setImgFitMode(mode)}
             />
 

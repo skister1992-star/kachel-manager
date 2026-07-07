@@ -4,7 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Upload, RotateCw, Maximize2, MoveHorizontal, MoveVertical, AlignCenter } from "lucide-react";
+import { Upload, RotateCw, Maximize2, MoveHorizontal, MoveVertical, AlignCenter, ZoomIn } from "lucide-react";
 
 interface ImageEditorProps {
   imageUrl: string;
@@ -13,9 +13,11 @@ interface ImageEditorProps {
   imgPositionY: number;
   imgRotation: number;
   imgFitMode: string;
+  imgZoom?: number;
   onImgPositionChange: (x: number, y: number) => void;
   onImgRotationChange: (rotation: number) => void;
   onImgFitModeChange: (mode: string) => void;
+  onImgZoomChange?: (zoom: number) => void;
 }
 
 const ImageEditor = ({
@@ -25,14 +27,19 @@ const ImageEditor = ({
   imgPositionY,
   imgRotation,
   imgFitMode,
+  imgZoom = 0,
   onImgPositionChange,
   onImgRotationChange,
   onImgFitModeChange,
+  onImgZoomChange,
 }: ImageEditorProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
+
+  // Disable dragging/panning in "fill" mode since the image is locked
+  const canPan = imgFitMode !== "fill";
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -62,17 +69,18 @@ const ImageEditor = ({
   };
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!canPan) return;
     e.preventDefault();
     setIsDragging(true);
     dragStart.current = { x: e.clientX, y: e.clientY, posX: imgPositionX, posY: imgPositionY };
-  }, [imgPositionX, imgPositionY]);
+  }, [imgPositionX, imgPositionY, canPan]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDragging) return;
+    if (!isDragging || !canPan) return;
     const dx = (e.clientX - dragStart.current.x);
     const dy = (e.clientY - dragStart.current.y);
     onImgPositionChange(dragStart.current.posX + dx, dragStart.current.posY + dy);
-  }, [isDragging, onImgPositionChange]);
+  }, [isDragging, canPan, onImgPositionChange]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -84,7 +92,7 @@ const ImageEditor = ({
       <Label className="text-sm font-medium block">Vorschau</Label>
       <div
         ref={previewRef}
-        className="aspect-video bg-muted border rounded-lg relative overflow-hidden cursor-move select-none"
+        className={`aspect-video bg-muted border rounded-lg relative overflow-hidden select-none ${canPan ? "cursor-move" : ""}`}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -95,18 +103,16 @@ const ImageEditor = ({
           <img
             src={imageUrl}
             alt="Vorschau"
-            className="absolute pointer-events-none select-none"
+            className={`absolute pointer-events-none select-none ${canPan ? "" : "w-full h-full object-cover"}`}
             draggable={false}
             style={{
-              top: imgFitMode === "fill" ? "-50%" : undefined,
-              left: imgFitMode === "fill" ? "-50%" : undefined,
-              width: imgFitMode === "fill" ? "200%" : undefined,
-              height: imgFitMode === "fill" ? "200%" : undefined,
-              objectFit: imgFitMode === "fit-width" ? "none" : undefined,
-              maxWidth: imgFitMode === "fit-width" ? "100%" : undefined,
-              maxHeight: imgFitMode === "fit-height" ? "100%" : undefined,
+              // For non-fill modes: center + pan + zoom
+              top: imgFitMode !== "fill" ? "50%" : undefined,
+              left: imgFitMode !== "fill" ? "50%" : undefined,
               transformOrigin: "center center",
-              transform: `translate(${imgPositionX}px, ${imgPositionY}px) rotate(${imgRotation}deg)`,
+              transform: imgFitMode === "fill"
+                ? undefined
+                : `translate(calc(-50% + ${imgPositionX}px), calc(-50% + ${imgPositionY}px)) rotate(${imgRotation}deg) scale(${1 + imgZoom / 100})`,
             }}
           />
         ) : (
@@ -123,6 +129,69 @@ const ImageEditor = ({
         Bild hochladen
       </Button>
 
+      {/* Fit mode buttons */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium block">Anpassung</Label>
+        <div className="grid grid-cols-4 gap-1">
+          <Button
+            variant={imgFitMode === "fill" ? "default" : "outline"}
+            size="sm"
+            onClick={() => onImgFitModeChange("fill")}
+            title="An Kachel füllen (kein Verschieben)"
+          >
+            <Maximize2 size={14} />
+            <span className="ml-1 text-xs">Füllen</span>
+          </Button>
+          <Button
+            variant={imgFitMode === "fit-width" ? "default" : "outline"}
+            size="sm"
+            onClick={() => onImgFitModeChange("fit-width")}
+            title="Breite anpassen & zentrieren"
+          >
+            <MoveHorizontal size={14} />
+            <span className="ml-1 text-xs">Breite</span>
+          </Button>
+          <Button
+            variant={imgFitMode === "fit-height" ? "default" : "outline"}
+            size="sm"
+            onClick={() => onImgFitModeChange("fit-height")}
+            title="Höhe anpassen & zentrieren"
+          >
+            <MoveVertical size={14} />
+            <span className="ml-1 text-xs">Höhe</span>
+          </Button>
+          <Button
+            variant={imgFitMode === "center" ? "default" : "outline"}
+            size="sm"
+            onClick={() => onImgFitModeChange("center")}
+            title="Originalgröße mittig"
+          >
+            <AlignCenter size={14} />
+            <span className="ml-1 text-xs">Mitte</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* Zoom slider */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <ZoomIn size={14} />
+            Vergrößerung: {imgZoom > 0 ? `+${imgZoom}` : imgZoom}%
+          </span>
+          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => onImgZoomChange && onImgZoomChange(0)}>
+            Nullen
+          </Button>
+        </Label>
+        <Slider
+          value={[imgZoom]}
+          onValueChange={(vals) => onImgZoomChange && onImgZoomChange(vals[0])}
+          min={-100}
+          max={100}
+          step={1}
+        />
+      </div>
+
       {/* Rotation slider */}
       <div className="space-y-2">
         <Label className="text-sm font-medium flex items-center gap-2">
@@ -136,49 +205,6 @@ const ImageEditor = ({
           max={360}
           step={1}
         />
-      </div>
-
-      {/* Fit mode buttons */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium block">Anpassung</Label>
-        <div className="grid grid-cols-4 gap-1">
-          <Button
-            variant={imgFitMode === "fill" ? "default" : "outline"}
-            size="sm"
-            onClick={() => onImgFitModeChange("fill")}
-            title="Kachel füllen"
-          >
-            <Maximize2 size={14} />
-            <span className="ml-1 text-xs">Füllen</span>
-          </Button>
-          <Button
-            variant={imgFitMode === "fit-width" ? "default" : "outline"}
-            size="sm"
-            onClick={() => onImgFitModeChange("fit-width")}
-            title="An Breite anpassen"
-          >
-            <MoveHorizontal size={14} />
-            <span className="ml-1 text-xs">Breite</span>
-          </Button>
-          <Button
-            variant={imgFitMode === "fit-height" ? "default" : "outline"}
-            size="sm"
-            onClick={() => onImgFitModeChange("fit-height")}
-            title="An Höhe anpassen"
-          >
-            <MoveVertical size={14} />
-            <span className="ml-1 text-xs">Höhe</span>
-          </Button>
-          <Button
-            variant={imgFitMode === "center" ? "default" : "outline"}
-            size="sm"
-            onClick={() => onImgFitModeChange("center")}
-            title="Mittig ausrichten"
-          >
-            <AlignCenter size={14} />
-            <span className="ml-1 text-xs">Mitte</span>
-          </Button>
-        </div>
       </div>
     </div>
   );
