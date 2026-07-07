@@ -4,7 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Upload, RotateCw, Maximize2, MoveHorizontal, MoveVertical, AlignCenter, ZoomIn } from "lucide-react";
+import { Upload, RotateCw, Maximize2, MoveHorizontal, MoveVertical, AlignCenter, ZoomIn, Undo2 } from "lucide-react";
 
 interface ImageEditorProps {
   imageUrl: string;
@@ -38,6 +38,7 @@ const ImageEditor = ({
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
 
+  // Pan is only possible when not in fill mode
   const canPan = imgFitMode !== "fill";
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -85,9 +86,19 @@ const ImageEditor = ({
     setIsDragging(false);
   }, []);
 
+  // Reset position when switching fit modes for clean transitions
+  const handleFitModeChange = (mode: string) => {
+    if (mode !== imgFitMode) {
+      onImgPositionChange(0, 0);
+    }
+    onImgFitModeChange(mode);
+  };
+
+  // Build the image style based on fit mode and transforms
   const getImageStyle = (): React.CSSProperties => {
     if (!imageUrl) return {};
 
+    // Füllen: fill the tile while preserving aspect ratio (crop overflow)
     if (imgFitMode === "fill") {
       return {
         position: "absolute",
@@ -95,10 +106,12 @@ const ImageEditor = ({
         left: 0,
         width: "100%",
         height: "100%",
-        objectFit: "none",
+        objectFit: "cover",
+        objectPosition: "center center",
       };
     }
 
+    // Other modes: centered with transform for pan/rotation/zoom
     const baseStyle: React.CSSProperties = {
       position: "absolute",
       top: "50%",
@@ -109,12 +122,15 @@ const ImageEditor = ({
     };
 
     if (imgFitMode === "fit-width") {
+      // Scale so image width = tile width, keep aspect ratio, center vertically
       baseStyle.width = "100%";
       baseStyle.height = "auto";
     } else if (imgFitMode === "fit-height") {
+      // Scale so image height = tile height, keep aspect ratio, center horizontally
       baseStyle.width = "auto";
       baseStyle.height = "100%";
     } else {
+      // Center: original size, centered in tile
       baseStyle.maxWidth = "100%";
       baseStyle.maxHeight = "100%";
     }
@@ -129,6 +145,7 @@ const ImageEditor = ({
 
   return (
     <div className="space-y-4">
+      {/* Image preview */}
       <Label className="text-sm font-medium block">Vorschau</Label>
       <div
         ref={previewRef}
@@ -154,20 +171,22 @@ const ImageEditor = ({
         )}
       </div>
 
+      {/* Upload button */}
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
       <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full">
         <Upload size={16} className="mr-2" />
         Bild hochladen
       </Button>
 
+      {/* Fit mode buttons */}
       <div className="space-y-2">
         <Label className="text-sm font-medium block">Anpassung</Label>
         <div className="grid grid-cols-4 gap-1">
           <Button
             variant={imgFitMode === "fill" ? "default" : "outline"}
             size="sm"
-            onClick={() => onImgFitModeChange("fill")}
-            title="An Kachel füllen (kein Verschieben)"
+            onClick={() => handleFitModeChange("fill")}
+            title="Kachel füllen (Seitenverhältnis beibehalten)"
           >
             <Maximize2 size={14} />
             <span className="ml-1 text-xs">Füllen</span>
@@ -175,7 +194,7 @@ const ImageEditor = ({
           <Button
             variant={imgFitMode === "fit-width" ? "default" : "outline"}
             size="sm"
-            onClick={() => onImgFitModeChange("fit-width")}
+            onClick={() => handleFitModeChange("fit-width")}
             title="Breite anpassen & zentrieren"
           >
             <MoveHorizontal size={14} />
@@ -184,7 +203,7 @@ const ImageEditor = ({
           <Button
             variant={imgFitMode === "fit-height" ? "default" : "outline"}
             size="sm"
-            onClick={() => onImgFitModeChange("fit-height")}
+            onClick={() => handleFitModeChange("fit-height")}
             title="Höhe anpassen & zentrieren"
           >
             <MoveVertical size={14} />
@@ -193,7 +212,7 @@ const ImageEditor = ({
           <Button
             variant={imgFitMode === "center" ? "default" : "outline"}
             size="sm"
-            onClick={() => onImgFitModeChange("center")}
+            onClick={() => handleFitModeChange("center")}
             title="Originalgröße mittig"
           >
             <AlignCenter size={14} />
@@ -202,6 +221,7 @@ const ImageEditor = ({
         </div>
       </div>
 
+      {/* Zoom slider */}
       <div className="space-y-2">
         <Label className="text-sm font-medium flex items-center justify-between">
           <span className="flex items-center gap-2">
@@ -209,6 +229,7 @@ const ImageEditor = ({
             Vergrößerung: {imgZoom > 0 ? `+${imgZoom}` : imgZoom}%
           </span>
           <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => onImgZoomChange && onImgZoomChange(0)}>
+            <Undo2 size={12} className="mr-1" />
             Nullen
           </Button>
         </Label>
@@ -221,6 +242,7 @@ const ImageEditor = ({
         />
       </div>
 
+      {/* Rotation slider */}
       <div className="space-y-2">
         <Label className="text-sm font-medium flex items-center gap-2">
           <RotateCw size={14} />
